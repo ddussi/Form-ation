@@ -16,5 +16,6 @@
   "bugs": {
     "url": "https://github.com/ddussi/Form-ation/issues"
   },
-  "homepage": "https://github.com/ddussi/Form-ation#readme"
+  "homepage": "https://github.com/ddussi/Form-ation#readme",
+  "packageManager": "pnpm@10.15.0"
 }
