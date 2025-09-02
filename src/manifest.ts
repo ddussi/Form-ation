@@ -1,4 +1,4 @@
-import { defineManifest } from '@crxjs/vite-plugin'
+import { defineManifest } from '@crxjs/vite-plugin';
 
 export default defineManifest({
   manifest_version: 3,
@@ -8,6 +8,4 @@ export default defineManifest({
     default_popup: 'index.html',
   },
   // 필요한 권한/스크립트/아이콘은 이후 단계에서 추가합니다.
-})
-
-
+});

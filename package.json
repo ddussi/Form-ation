@@ -9,6 +9,9 @@
     "build": "tsc -b && vite build",
     "build:zip": "bestzip dist.zip dist/*",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,6 +19,8 @@
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
     "bestzip": "^2.2.1",
     "rimraf": "^6.0.1",
     "@crxjs/vite-plugin": "^2.2.0",
