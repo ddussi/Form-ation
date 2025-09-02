@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "clean": "rimraf dist",
     "build": "tsc -b && vite build",
+    "build:zip": "bestzip dist.zip dist/*",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -14,6 +16,8 @@
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "bestzip": "^2.2.1",
+    "rimraf": "^6.0.1",
     "@crxjs/vite-plugin": "^2.2.0",
     "@eslint/js": "^9.33.0",
     "@types/react": "^19.1.10",
