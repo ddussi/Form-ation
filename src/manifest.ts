@@ -7,5 +7,17 @@ export default defineManifest({
   action: {
     default_popup: 'index.html',
   },
-  // 필요한 권한/스크립트/아이콘은 이후 단계에서 추가합니다.
+  background: {
+    service_worker: 'src/background/index.ts',
+    type: 'module',
+  },
+  content_scripts: [
+    {
+      matches: ['<all_urls>'],
+      js: ['src/content/index.ts'],
+      run_at: 'document_idle',
+    },
+  ],
+  options_page: 'src/options/index.html',
+  permissions: ['storage', 'activeTab'],
 });
