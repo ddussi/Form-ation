@@ -1,11 +1,16 @@
 import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues } from '../utils/formDetection.js';
+import { saveFormData, getSiteSettings, saveSiteSettings } from '../utils/storage.js';
+import { ModalManager } from './ModalManager.js';
 import type { FormInfo } from '../types/form.js';
 
 class FormManager {
   private detectedForms: FormInfo[] = [];
   private isInitialized = false;
+  private modalManager: ModalManager;
+  private pendingSaves = new Map<string, { form: FormInfo; values: Record<string, string> }>();
 
   constructor() {
+    this.modalManager = new ModalManager();
     this.init();
   }
 
@@ -83,21 +88,90 @@ class FormManager {
     this.checkForSave(form);
   }
 
-  private checkForSave(form: FormInfo) {
+  private async checkForSave(form: FormInfo) {
     const values = collectFieldValues(form.fields);
     const hasValues = Object.keys(values).length > 0;
     
-    if (hasValues) {
+    if (!hasValues) return;
+    
+    const key = generateStorageKey(form);
+    const storageKey = storageKeyToString(key);
+    
+    console.log('[FormManager] 저장 가능한 값 감지:', {
+      storageKey,
+      values
+    });
+    
+    // 사이트 설정 확인
+    const settings = await getSiteSettings(key.origin, key.formSignature);
+    
+    // 중복 모달 방지
+    if (this.pendingSaves.has(storageKey)) {
+      console.log('[FormManager] 이미 저장 모달이 표시 중:', storageKey);
+      return;
+    }
+    
+    switch (settings.saveMode) {
+      case 'always':
+        // 바로 저장
+        await this.performSave(form, values);
+        break;
+        
+      case 'never':
+        // 저장하지 않음
+        console.log('[FormManager] 저장 안 함 (사용자 설정):', storageKey);
+        break;
+        
+      case 'ask':
+      default:
+        // 모달 표시
+        this.showSaveConfirmModal(form, values);
+        break;
+    }
+  }
+
+  private showSaveConfirmModal(form: FormInfo, values: Record<string, string>) {
+    const key = generateStorageKey(form);
+    const storageKey = storageKeyToString(key);
+    
+    // 중복 방지
+    this.pendingSaves.set(storageKey, { form, values });
+    
+    this.modalManager.showSaveConfirm(
+      form,
+      // 저장 선택
+      async () => {
+        await this.performSave(form, values);
+        this.pendingSaves.delete(storageKey);
+      },
+      // 이번만 아니오
+      () => {
+        console.log('[FormManager] 이번만 저장 안 함:', storageKey);
+        this.pendingSaves.delete(storageKey);
+      },
+      // 다시 묻지 않기
+      async () => {
+        console.log('[FormManager] 다시 묻지 않기 설정:', storageKey);
+        await saveSiteSettings(key.origin, key.formSignature, { saveMode: 'never' });
+        this.pendingSaves.delete(storageKey);
+      }
+    );
+  }
+
+  private async performSave(form: FormInfo, values: Record<string, string>) {
+    try {
       const key = generateStorageKey(form);
-      const storageKey = storageKeyToString(key);
+      await saveFormData(key, values);
       
-      console.log('[FormManager] 저장 가능한 값 감지:', {
-        storageKey,
-        values
+      console.log('[FormManager] 폼 데이터 저장 완료:', {
+        storageKey: storageKeyToString(key),
+        fieldCount: Object.keys(values).length
       });
       
-      // TODO: 다음 단계에서 저장 확인 모달 표시
-      // 지금은 콘솔에만 출력
+      // TODO: 토스트 알림 표시 (5단계에서 구현)
+      
+    } catch (error) {
+      console.error('[FormManager] 저장 실패:', error);
     }
   }
 
@@ -108,6 +182,28 @@ class FormManager {
 
   public manualCheck() {
     this.detectedForms.forEach(form => this.checkForSave(form));
+  }
+
+  public async manualSaveTest() {
+    console.log('[FormManager] 수동 저장 테스트 실행...');
+    for (const form of this.detectedForms) {
+      const values = collectFieldValues(form.fields);
+      if (Object.keys(values).length > 0) {
+        this.showSaveConfirmModal(form, values);
+        break; // 첫 번째 폼만 테스트
+      }
+    }
+  }
+
+  public getStorageDebugInfo() {
+    import('../utils/storage.js').then(async ({ getAllStoredData }) => {
+      const data = await getAllStoredData();
+      console.log('[FormManager] 저장된 모든 데이터:', data);
+    });
+  }
+
+  public destroy() {
+    this.modalManager.destroy();
   }
 }
 

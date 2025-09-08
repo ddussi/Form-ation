@@ -145,7 +145,20 @@
   <ul>
     <li><code>formManager.getDetectedForms()</code> - 감지된 폼 목록 확인</li>
     <li><code>formManager.manualCheck()</code> - 수동으로 저장 체크 실행</li>
+    <li><code>formManager.manualSaveTest()</code> - 저장 모달 테스트</li>
+    <li><code>formManager.getStorageDebugInfo()</code> - 저장된 데이터 확인</li>
   </ul>
+
+  <div style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-radius: 8px;">
+    <h3>테스트 방법</h3>
+    <ol>
+      <li>폼에 값을 입력하고 0.5초 기다리거나 제출 버튼을 클릭</li>
+      <li>"이 폼의 입력값을 저장할까요?" 모달이 표시되는지 확인</li>
+      <li>[저장] 클릭 후 <code>formManager.getStorageDebugInfo()</code>로 저장 확인</li>
+      <li>[다시 묻지 않기] 클릭 후 다시 입력해도 모달이 안 뜨는지 확인</li>
+    </ol>
+    <p><strong>민감값 필드(비밀번호, 인증코드 등)에서는 모달이 뜨지 않아야 함!</strong></p>
+  </div>
 
   <script>
     // 테스트용 이벤트 리스너
