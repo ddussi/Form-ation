@@ -1,6 +1,9 @@
 import type { StoredFormData, StorageKey } from '../types/form.js';
 import { storageKeyToString } from './formDetection.js';
 
+// 다른 파일에서 import할 수 있도록 re-export
+export type { StoredFormData };
+
 /**
  * 사이트별 설정을 저장하기 위한 타입
  */

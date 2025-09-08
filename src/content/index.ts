@@ -1,6 +1,8 @@
 import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues } from '../utils/formDetection.js';
 import { saveFormData, getSiteSettings, saveSiteSettings, getFormData } from '../utils/storage.js';
 import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '../utils/autofill.js';
+import { toastManager } from '../utils/toastManager.js';
+import { browserNotificationManager } from '../utils/browserNotification.js';
 import { ModalManager } from './ModalManager.js';
 import type { FormInfo } from '../types/form.js';
 
@@ -141,10 +143,40 @@ class FormManager {
         
       case 'ask':
       default:
-        // 모달 표시
-        this.showSaveConfirmModal(form, values);
+        // 🎉 브라우저 알림으로 변경 (페이지 이동과 독립적)
+        await this.showSaveConfirmNotification(form, values);
         break;
     }
+  }
+
+  private async showSaveConfirmNotification(form: FormInfo, values: Record<string, string>) {
+    const key = generateStorageKey(form);
+    const storageKey = storageKeyToString(key);
+    const siteName = new URL(key.origin).hostname;
+    
+    // 중복 모달 방지
+    this.pendingSaves.set(storageKey, { form, values });
+    
+    await browserNotificationManager.showSaveConfirm(
+      Object.keys(values).length,
+      siteName,
+      async () => {
+        // 저장 선택
+        await this.performSave(form, values);
+        this.pendingSaves.delete(storageKey);
+      },
+      () => {
+        // 이번에는 안함
+        console.log('[FormManager] 사용자가 저장을 취소함');
+        this.pendingSaves.delete(storageKey);
+      },
+      async () => {
+        // 다시 묻지 않음
+        console.log('[FormManager] 사용자가 다시 묻지 않음을 선택');
+        await saveSiteSettings(key.origin, key.formSignature, { saveMode: 'never' });
+        this.pendingSaves.delete(storageKey);
+      }
+    );
   }
 
   private showSaveConfirmModal(form: FormInfo, values: Record<string, string>) {
@@ -185,10 +217,13 @@ class FormManager {
         fieldCount: Object.keys(values).length
       });
       
-      // TODO: 토스트 알림 표시 (5단계에서 구현)
+      // 저장 완료 토스트 표시
+      const fieldCount = Object.keys(values).length;
+      toastManager.success(`폼 데이터 저장됨 (${fieldCount}개 필드)`);
       
     } catch (error) {
       console.error('[FormManager] 저장 실패:', error);
+      toastManager.error('폼 데이터 저장 실패');
     }
   }
 
@@ -305,13 +340,17 @@ class FormManager {
     storedData: any, 
     previewData: Record<string, string>
   ): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       const key = generateStorageKey(form);
       
-      this.modalManager.showAutofillConfirm(
-        form,
-        previewData,
-        this.autofillQueue.length, // 남은 폼 개수 전달
+      // 🎉 브라우저 알림으로 변경 (페이지 이동과 독립적)
+      const siteName = new URL(key.origin).hostname;
+      const previewFields = Object.keys(previewData);
+      
+      await browserNotificationManager.showAutofillConfirm(
+        Object.keys(previewData).length,
+        siteName,
+        previewFields,
         // 자동입력 선택
         async () => {
           await this.performAutofill(form, storedData);
@@ -343,10 +382,16 @@ class FormManager {
         ...result
       });
       
-      // TODO: 토스트 알림 표시 (5단계에서 구현)
+      // 자동입력 완료 토스트 표시
+      if (result.filledCount > 0) {
+        toastManager.success(`자동입력 완료 (${result.filledCount}개 필드)`);
+      } else {
+        toastManager.info('자동입력 할 필드가 없었습니다');
+      }
       
     } catch (error) {
       console.error('[FormManager] 자동입력 실패:', error);
+      toastManager.error('자동입력 실패');
     }
   }
 

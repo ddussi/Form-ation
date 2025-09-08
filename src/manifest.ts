@@ -19,5 +19,5 @@ export default defineManifest({
     },
   ],
   options_page: 'src/options/index.html',
-  permissions: ['storage', 'activeTab'],
+  permissions: ['storage', 'activeTab', 'notifications'],
 });

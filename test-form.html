@@ -136,13 +136,23 @@
   </ul>
 
   <div style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-radius: 8px;">
-    <h3>✨ 다중 폼 지원 테스트 방법</h3>
-    <h4>📝 저장 기능 테스트:</h4>
+    <h3>🎉 5단계 완성! UI/UX 개선 테스트</h3>
+
+    <h4>🍞 토스트 알림 테스트:</h4>
     <ol>
-      <li><strong>여러 폼에 각각 다른 값</strong>을 입력하고 제출</li>
-      <li>각 폼마다 "이 폼의 입력값을 저장할까요?" 모달 표시</li>
-      <li>모든 폼에서 [저장] 클릭</li>
-      <li><code>formManager.getStorageDebugInfo()</code>로 모든 폼 저장 확인</li>
+      <li>폼에 값을 입력하고 제출</li>
+      <li>[저장] 클릭 시 <strong>"폼 데이터 저장됨 (N개 필드)"</strong> 토스트 확인</li>
+      <li>새로고침 후 [입력] 클릭 시 <strong>"자동입력 완료 (N개 필드)"</strong> 토스트 확인</li>
+      <li>토스트는 우측 상단에 3초간 표시됨</li>
+    </ol>
+
+    <h4>⚙️ 관리 페이지 테스트:</h4>
+    <ol>
+      <li>크롬 확장 아이콘 우클릭 → <strong>"옵션"</strong> 클릭</li>
+      <li>저장된 폼 데이터 목록 확인</li>
+      <li>각 폼의 저장/자동입력 모드 변경 테스트</li>
+      <li>개별 삭제, 사이트별 삭제, 전체 삭제 테스트</li>
+      <li>통계 정보(저장된 폼 수, 사용 용량) 확인</li>
     </ol>
 
     <h4>🔄 다중 폼 자동입력 테스트:</h4>
@@ -151,7 +161,7 @@
       <li>페이지 로드 시 <strong>순차적으로</strong> 자동입력 모달 표시</li>
       <li>첫 번째 폼 모달에서 "⏭️ 대기 중인 폼: N개" 확인</li>
       <li>각 모달에서 [입력] 클릭하면 해당 폼만 채워짐</li>
-      <li>모든 폼이 순서대로 처리됨</li>
+      <li>토스트 알림으로 자동입력 완료 피드백</li>
     </ol>
 
     <p><strong>🎯 수동 테스트:</strong></p>
@@ -160,9 +170,19 @@
       <li><code>formManager.manualAutofillTest()</code> - 자동입력 모달 즉시 표시</li>
     </ul>
 
-    <p><strong>✅ 다중 폼 순차 처리 시스템 완성!</strong></p>
-    <p><strong>🔀 여러 폼이 있어도 하나씩 순서대로 처리됩니다.</strong></p>
-    <p><strong>🔒 password 타입은 여전히 제외됩니다.</strong></p>
+    <h4>🔔 브라우저 알림 시스템 테스트 (NEW!):</h4>
+    <ol>
+      <li>폼에 값을 입력하고 <strong>제출 버튼 클릭</strong></li>
+      <li>페이지가 이동해도 <strong>시스템 알림이 표시됨</strong></li>
+      <li>알림에서 "💾 저장", "❌ 이번에는 안함", "🚫 다시 묻지 않음" 버튼 확인</li>
+      <li>다른 탭이나 앱을 사용 중에도 알림 확인 가능</li>
+      <li>새로고침 후 자동입력 알림도 동일하게 시스템 레벨에서 표시</li>
+    </ol>
+
+    <p><strong>✅ 완전한 폼 관리 시스템 완성!</strong></p>
+    <p><strong>🔔 브라우저 알림 + 토스트 피드백 + 관리 대시보드 + 다중 폼 지원</strong></p>
+    <p><strong>🚀 페이지 이동과 독립적인 네이티브 UX</strong></p>
+    <p><strong>📊 번들 크기: 26.64kB (브라우저 알림 시스템 포함)</strong></p>
   </div>
 
   <script>
