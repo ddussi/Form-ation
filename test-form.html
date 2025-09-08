@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form-ation 테스트 페이지</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    form {
+      border: 1px solid #ddd;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      background: #007cba;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .orphan-fields {
+      border: 2px dashed #999;
+      padding: 20px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Form-ation 폼 감지 테스트</h1>
+
+  <h2>폼 1: 연락처 정보</h2>
+  <form id="contact-form">
+    <div class="form-group">
+      <label for="name">이름</label>
+      <input type="text" id="name" name="name" placeholder="홍길동">
+    </div>
+    <div class="form-group">
+      <label for="email">이메일</label>
+      <input type="email" id="email" name="email" placeholder="hong@example.com">
+    </div>
+    <div class="form-group">
+      <label for="phone">전화번호</label>
+      <input type="tel" id="phone" name="phone" placeholder="010-1234-5678">
+    </div>
+    <div class="form-group">
+      <label for="message">메시지</label>
+      <textarea id="message" name="message" rows="4" placeholder="메시지를 입력하세요"></textarea>
+    </div>
+    <button type="submit">제출</button>
+  </form>
+
+  <h2>폼 2: 검색 (다른 form)</h2>
+  <form id="search-form">
+    <div class="form-group">
+      <label for="query">검색어</label>
+      <input type="search" id="query" name="query" placeholder="검색어 입력">
+    </div>
+    <div class="form-group">
+      <label for="category">카테고리</label>
+      <input type="text" id="category" name="category" placeholder="카테고리">
+    </div>
+    <button type="submit">검색</button>
+  </form>
+
+  <h2>폼 태그 밖의 필드들 (페이지 단위로 감지되어야 함)</h2>
+  <div class="orphan-fields">
+    <div class="form-group">
+      <label for="standalone1">독립 필드 1</label>
+      <input type="text" id="standalone1" name="standalone1" placeholder="폼 태그 밖 필드">
+    </div>
+    <div class="form-group">
+      <label for="standalone2">독립 필드 2</label>
+      <input type="url" id="standalone2" name="standalone2" placeholder="https://example.com">
+    </div>
+  </div>
+
+  <h2>제외되어야 하는 필드들 (민감값 필터링 테스트)</h2>
+  <form id="excluded-form">
+    <div class="form-group">
+      <label for="password">비밀번호 (type=password)</label>
+      <input type="password" id="password" name="password">
+    </div>
+    <div class="form-group">
+      <label for="pwd-field">비밀번호 확인 (name에 pwd)</label>
+      <input type="text" id="pwd-field" name="pwd-confirm">
+    </div>
+    <div class="form-group">
+      <label>인증 코드 (label에 인증)</label>
+      <input type="text" id="auth-code" name="verification-code">
+    </div>
+    <div class="form-group">
+      <label for="card-num">카드 번호 (name에 card)</label>
+      <input type="text" id="card-num" name="card-number">
+    </div>
+    <div class="form-group">
+      <label for="ssn">주민번호 (id에 ssn)</label>
+      <input type="text" id="ssn" name="social-security">
+    </div>
+    <div class="form-group">
+      <label for="otp-input">OTP (placeholder에 코드)</label>
+      <input type="text" id="otp-input" name="otp" placeholder="인증 코드를 입력하세요">
+    </div>
+    <div class="form-group">
+      <label for="normal-field">일반 필드 (포함되어야 함)</label>
+      <input type="text" id="normal-field" name="normal-field" placeholder="이 필드는 감지됨">
+    </div>
+    <div class="form-group">
+      <label for="no-name">name/id 없는 필드 (제외됨)</label>
+      <input type="text" placeholder="name도 id도 없음">
+    </div>
+  </form>
+
+  <h2>디버깅 컨트롤</h2>
+  <p>브라우저 개발자 도구 콘솔에서 다음 명령을 사용하세요:</p>
+  <ul>
+    <li><code>formManager.getDetectedForms()</code> - 감지된 폼 목록 확인</li>
+    <li><code>formManager.manualCheck()</code> - 수동으로 저장 체크 실행</li>
+  </ul>
+
+  <script>
+    // 테스트용 이벤트 리스너
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('테스트 페이지 로드됨');
+
+      // 폼 제출 방지 (테스트용)
+      document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          console.log('폼 제출 방지됨:', form.id);
+        });
+      });
+    });
+  </script>
+</body>
+
+</html>
