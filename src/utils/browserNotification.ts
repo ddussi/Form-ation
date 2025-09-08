@@ -1,4 +1,5 @@
 // 브라우저 레벨 알림 시스템 - 페이지 이동과 독립적
+// ⚠️ 이 클래스는 background script에서만 사용 가능
 
 export class BrowserNotificationManager {
   private activeNotifications = new Map<string, {
@@ -64,7 +65,7 @@ export class BrowserNotificationManager {
     try {
       await chrome.notifications.create(notificationId, {
         type: 'basic',
-        iconUrl: '/icon48.png',
+        iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
         title: '💾 Form-ation: 폼 저장 확인',
         message: `${siteName}에서 ${fieldCount}개 필드를 저장하시겠습니까?`,
         buttons: [
@@ -113,7 +114,7 @@ export class BrowserNotificationManager {
     try {
       await chrome.notifications.create(notificationId, {
         type: 'basic',
-        iconUrl: '/icon48.png',
+        iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
         title: '🔄 Form-ation: 자동입력 확인',
         message: `${siteName}에서 저장된 데이터로 자동입력하시겠습니까?\n미리보기: ${previewMessage}`,
         buttons: [
@@ -156,7 +157,7 @@ export class BrowserNotificationManager {
     try {
       await chrome.notifications.create(notificationId, {
         type: 'basic',
-        iconUrl: '/icon48.png',
+        iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
         title,
         message,
         requireInteraction: false // 자동으로 사라짐

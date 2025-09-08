@@ -2,7 +2,7 @@ import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues
 import { saveFormData, getSiteSettings, saveSiteSettings, getFormData } from '../utils/storage.js';
 import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '../utils/autofill.js';
 import { toastManager } from '../utils/toastManager.js';
-import { browserNotificationManager } from '../utils/browserNotification.js';
+import { notificationBridge } from '../utils/notificationBridge.js';
 import { ModalManager } from './ModalManager.js';
 import type { FormInfo } from '../types/form.js';
 
@@ -157,7 +157,7 @@ class FormManager {
     // 중복 모달 방지
     this.pendingSaves.set(storageKey, { form, values });
     
-    await browserNotificationManager.showSaveConfirm(
+    await notificationBridge.showSaveConfirm(
       Object.keys(values).length,
       siteName,
       async () => {
@@ -347,7 +347,7 @@ class FormManager {
       const siteName = new URL(key.origin).hostname;
       const previewFields = Object.keys(previewData);
       
-      await browserNotificationManager.showAutofillConfirm(
+      await notificationBridge.showAutofillConfirm(
         Object.keys(previewData).length,
         siteName,
         previewFields,
