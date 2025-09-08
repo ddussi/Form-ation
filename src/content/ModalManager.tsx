@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { SaveConfirmModal } from '../components/SaveConfirmModal.js';
+import { AutofillConfirmModal } from '../components/AutofillConfirmModal.js';
 import type { FormInfo } from '../types/form.js';
 
 export class ModalManager {
@@ -203,6 +204,51 @@ export class ModalManager {
   background: #f8f9fa;
 }
 
+/* 자동입력 모달 전용 스타일 */
+.formation-preview {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 15px 0;
+  border-left: 4px solid #007cba;
+}
+
+.formation-preview h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.formation-preview-item {
+  display: flex;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.formation-field-name {
+  font-weight: 500;
+  color: #666;
+  min-width: 80px;
+  margin-right: 8px;
+}
+
+.formation-field-value {
+  color: #333;
+  font-family: 'SF Mono', Consolas, monospace;
+  background: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.formation-preview-more {
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+  font-style: italic;
+}
+
 @media (max-width: 480px) {
   .formation-modal {
     margin: 20px;
@@ -216,6 +262,15 @@ export class ModalManager {
   .formation-btn {
     padding: 14px 20px;
     font-size: 16px;
+  }
+  
+  .formation-preview-item {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .formation-field-name {
+    min-width: auto;
   }
 }
     `;
@@ -258,6 +313,52 @@ export class ModalManager {
         formInfo={{
           fieldCount: formInfo.fields.length,
           url: formInfo.url
+        }}
+      />
+    );
+  }
+
+  showAutofillConfirm(
+    formInfo: FormInfo,
+    previewData: Record<string, string>,
+    remainingFormsCount: number,
+    onAutofill: () => void,
+    onNoThisTime: () => void,
+    onNeverAsk: () => void
+  ) {
+    if (this.isVisible) return;
+    
+    this.isVisible = true;
+    
+    if (this.container) {
+      this.container.style.pointerEvents = 'all';
+    }
+
+    const handleClose = () => {
+      this.hide();
+    };
+
+    this.root?.render(
+      <AutofillConfirmModal
+        isVisible={true}
+        onAutofill={() => {
+          onAutofill();
+          this.hide();
+        }}
+        onNoThisTime={() => {
+          onNoThisTime();
+          this.hide();
+        }}
+        onNeverAsk={() => {
+          onNeverAsk();
+          this.hide();
+        }}
+        onClose={handleClose}
+        formInfo={{
+          fieldCount: Object.keys(previewData).length,
+          url: formInfo.url,
+          previewData,
+          remainingFormsCount
         }}
       />
     );

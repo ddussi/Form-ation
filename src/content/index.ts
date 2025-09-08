@@ -1,5 +1,6 @@
 import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues } from '../utils/formDetection.js';
-import { saveFormData, getSiteSettings, saveSiteSettings } from '../utils/storage.js';
+import { saveFormData, getSiteSettings, saveSiteSettings, getFormData } from '../utils/storage.js';
+import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '../utils/autofill.js';
 import { ModalManager } from './ModalManager.js';
 import type { FormInfo } from '../types/form.js';
 
@@ -8,6 +9,8 @@ class FormManager {
   private isInitialized = false;
   private modalManager: ModalManager;
   private pendingSaves = new Map<string, { form: FormInfo; values: Record<string, string> }>();
+  private autofillQueue: Array<{ form: FormInfo; storedData: any; previewData: Record<string, string> }> = [];
+  private isProcessingAutofill = false;
 
   constructor() {
     this.modalManager = new ModalManager();
@@ -31,7 +34,7 @@ class FormManager {
     this.detectAndSetupForms();
   }
 
-  private detectAndSetupForms() {
+  private async detectAndSetupForms() {
     // 폼 감지
     this.detectedForms = detectForms();
     
@@ -54,6 +57,11 @@ class FormManager {
     
     // 페이지 이탈 시 처리를 위한 리스너 설정
     this.setupPageUnloadListener();
+
+    // 자동입력 체크 (약간의 딜레이를 두고 실행)
+    setTimeout(() => {
+      this.checkForAutofill();
+    }, 100);
   }
 
   private setupFormListeners(form: FormInfo) {
@@ -209,6 +217,156 @@ class FormManager {
       const data = await getAllStoredData();
       console.log('[FormManager] 저장된 모든 데이터:', data);
     });
+  }
+
+  // 자동입력 관련 메소드들
+  private async checkForAutofill() {
+    console.log('[FormManager] 자동입력 체크 시작...');
+
+    // 모든 폼을 검사해서 자동입력 대상을 큐에 추가
+    for (const form of this.detectedForms) {
+      try {
+        const key = generateStorageKey(form);
+        const storedData = await getFormData(key);
+        
+        if (storedData && Object.keys(storedData.fields).length > 0) {
+          await this.queueAutofillIfNeeded(form, storedData);
+        }
+      } catch (error) {
+        console.error('[FormManager] 자동입력 체크 에러:', error);
+      }
+    }
+
+    // 큐에 있는 항목들을 순차 처리
+    this.processAutofillQueue();
+  }
+
+  private async queueAutofillIfNeeded(form: FormInfo, storedData: any) {
+    const key = generateStorageKey(form);
+    const settings = await getSiteSettings(key.origin, key.formSignature);
+    
+    // 매칭 가능한 필드 확인
+    const matches = matchFieldsForAutofill(form, storedData);
+    const previewData = generatePreviewData(matches);
+    
+    if (Object.keys(previewData).length === 0) {
+      console.log('[FormManager] 자동입력 가능한 필드 없음:', key.formSignature);
+      return;
+    }
+
+    const storageKey = storageKeyToString(key);
+    console.log('[FormManager] 자동입력 가능한 데이터 발견:', {
+      storageKey,
+      matchCount: matches.length,
+      autofillableCount: Object.keys(previewData).length
+    });
+
+    switch (settings.autofillMode) {
+      case 'always':
+        // 바로 자동입력 (큐 거치지 않음)
+        await this.performAutofill(form, storedData);
+        break;
+        
+      case 'never':
+        // 자동입력하지 않음
+        console.log('[FormManager] 자동입력 안 함 (사용자 설정):', storageKey);
+        break;
+        
+      case 'ask':
+      default:
+        // 큐에 추가
+        this.autofillQueue.push({ form, storedData, previewData });
+        break;
+    }
+  }
+
+  private async processAutofillQueue() {
+    if (this.isProcessingAutofill || this.autofillQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessingAutofill = true;
+    
+    while (this.autofillQueue.length > 0) {
+      const { form, storedData, previewData } = this.autofillQueue.shift()!;
+      
+      console.log(`[FormManager] 자동입력 큐 처리 중... (남은 폼: ${this.autofillQueue.length}개)`);
+      
+      // 사용자 응답을 기다림
+      await this.showAutofillConfirmModalAndWait(form, storedData, previewData);
+    }
+
+    this.isProcessingAutofill = false;
+    console.log('[FormManager] 모든 자동입력 큐 처리 완료');
+  }
+
+  private showAutofillConfirmModalAndWait(
+    form: FormInfo, 
+    storedData: any, 
+    previewData: Record<string, string>
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const key = generateStorageKey(form);
+      
+      this.modalManager.showAutofillConfirm(
+        form,
+        previewData,
+        this.autofillQueue.length, // 남은 폼 개수 전달
+        // 자동입력 선택
+        async () => {
+          await this.performAutofill(form, storedData);
+          resolve();
+        },
+        // 이번만 아니오
+        () => {
+          console.log('[FormManager] 이번만 자동입력 안 함:', storageKeyToString(key));
+          resolve();
+        },
+        // 다시 묻지 않기
+        async () => {
+          console.log('[FormManager] 자동입력 다시 묻지 않기 설정:', storageKeyToString(key));
+          await saveSiteSettings(key.origin, key.formSignature, { autofillMode: 'never' });
+          resolve();
+        }
+      );
+    });
+  }
+
+
+  private async performAutofill(form: FormInfo, storedData: any) {
+    try {
+      const result = executeAutofill(form, storedData);
+      const key = generateStorageKey(form);
+      
+      console.log('[FormManager] 자동입력 완료:', {
+        storageKey: storageKeyToString(key),
+        ...result
+      });
+      
+      // TODO: 토스트 알림 표시 (5단계에서 구현)
+      
+    } catch (error) {
+      console.error('[FormManager] 자동입력 실패:', error);
+    }
+  }
+
+  // 디버깅용 자동입력 테스트
+  public async manualAutofillTest() {
+    console.log('[FormManager] 수동 자동입력 테스트 실행...');
+    for (const form of this.detectedForms) {
+      const key = generateStorageKey(form);
+      const storedData = await getFormData(key);
+      
+      if (storedData) {
+        const matches = matchFieldsForAutofill(form, storedData);
+        const previewData = generatePreviewData(matches);
+        
+        if (Object.keys(previewData).length > 0) {
+          await this.showAutofillConfirmModalAndWait(form, storedData, previewData);
+          break; // 첫 번째 폼만 테스트
+        }
+      }
+    }
   }
 
   public destroy() {
