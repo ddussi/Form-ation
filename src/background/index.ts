@@ -42,13 +42,26 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse): b
           notificationManager.showSaveConfirm(
             msg.fieldCount,
             msg.siteName,
-            () => {
+            async () => {
               console.log('[Background] 저장 선택됨');
-              chrome.tabs.sendMessage(sender.tab?.id!, {
-                type: 'SAVE_NOTIFICATION_RESPONSE',
-                action: 'save',
-                requestId: msg.requestId
-              });
+              // 🔑 Background Script에서 직접 저장 실행
+              try {
+                await saveFormData(msg.formData.storageKey, msg.formData.values);
+                console.log('[Background] 폼 데이터 저장 완료');
+                
+                chrome.tabs.sendMessage(sender.tab?.id!, {
+                  type: 'SAVE_NOTIFICATION_RESPONSE',
+                  action: 'save',
+                  requestId: msg.requestId
+                });
+              } catch (saveError) {
+                console.error('[Background] 저장 실패:', saveError);
+                chrome.tabs.sendMessage(sender.tab?.id!, {
+                  type: 'SAVE_NOTIFICATION_RESPONSE',
+                  action: 'cancel', // 저장 실패 시 취소로 처리
+                  requestId: msg.requestId
+                });
+              }
             },
             () => {
               console.log('[Background] 취소 선택됨');
@@ -58,8 +71,16 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse): b
                 requestId: msg.requestId
               });
             },
-            () => {
+            async () => {
               console.log('[Background] 다시 묻지 않음 선택됨');
+              // 🔑 Background Script에서 직접 설정 저장
+              try {
+                await saveSiteSettings(msg.formData.origin, msg.formData.formSignature, { saveMode: 'never' });
+                console.log('[Background] 사이트 설정 저장 완료');
+              } catch (settingError) {
+                console.error('[Background] 설정 저장 실패:', settingError);
+              }
+              
               chrome.tabs.sendMessage(sender.tab?.id!, {
                 type: 'SAVE_NOTIFICATION_RESPONSE',
                 action: 'never',

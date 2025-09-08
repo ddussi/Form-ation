@@ -160,20 +160,28 @@ class FormManager {
     await notificationBridge.showSaveConfirm(
       Object.keys(values).length,
       siteName,
-      async () => {
-        // 저장 선택
-        await this.performSave(form, values);
+      {
+        storageKey: key,
+        values,
+        origin: key.origin,
+        formSignature: key.formSignature
+      },
+      () => {
+        // 저장 선택 (Background Script에서 이미 저장 완료)
+        console.log('[FormManager] 저장 완료 (Background에서 처리됨)');
         this.pendingSaves.delete(storageKey);
+        // 토스트 알림 표시
+        const fieldCount = Object.keys(values).length;
+        toastManager.success(`폼 데이터 저장됨 (${fieldCount}개 필드)`);
       },
       () => {
         // 이번에는 안함
         console.log('[FormManager] 사용자가 저장을 취소함');
         this.pendingSaves.delete(storageKey);
       },
-      async () => {
-        // 다시 묻지 않음
-        console.log('[FormManager] 사용자가 다시 묻지 않음을 선택');
-        await saveSiteSettings(key.origin, key.formSignature, { saveMode: 'never' });
+      () => {
+        // 다시 묻지 않음 (Background Script에서 이미 설정 완료)
+        console.log('[FormManager] 다시 묻지 않음 설정 완료 (Background에서 처리됨)');
         this.pendingSaves.delete(storageKey);
       }
     );

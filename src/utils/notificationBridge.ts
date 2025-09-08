@@ -33,22 +33,24 @@ export class NotificationBridge {
   async showSaveConfirm(
     fieldCount: number,
     siteName: string,
+    formData: { storageKey: any; values: Record<string, string>; origin: string; formSignature: string },
     onSave: () => void,
     onCancel: () => void,
     onNever: () => void
   ): Promise<void> {
     const requestId = `save-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    console.log('[NotificationBridge] 저장 알림 요청:', { requestId, fieldCount, siteName });
+    console.log('[NotificationBridge] 저장 알림 요청:', { requestId, fieldCount, siteName, formData });
 
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(requestId, { resolve, reject });
 
-      // Background script에 알림 요청
+      // Background script에 알림 요청 (폼 데이터 포함)
       chrome.runtime.sendMessage({
         type: 'SHOW_SAVE_NOTIFICATION',
         fieldCount,
         siteName,
+        formData, // 🔑 저장할 데이터 포함
         requestId
       }, (response) => {
         console.log('[NotificationBridge] sendMessage 응답:', response);
