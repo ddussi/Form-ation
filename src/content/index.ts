@@ -51,36 +51,45 @@ class FormManager {
 
     // 각 폼에 대해 이벤트 리스너 설정
     this.detectedForms.forEach(form => this.setupFormListeners(form));
+    
+    // 페이지 이탈 시 처리를 위한 리스너 설정
+    this.setupPageUnloadListener();
   }
 
   private setupFormListeners(form: FormInfo) {
-    // 필드 변경 감지를 위한 이벤트 리스너
-    form.fields.forEach(field => {
-      // input 이벤트로 실시간 변경 감지
-      field.element.addEventListener('input', () => {
-        this.onFieldChanged(form, field.element);
-      });
-      
-      // focus out 시에도 체크
-      field.element.addEventListener('blur', () => {
-        this.onFieldChanged(form, field.element);
-      });
-    });
-
     // 폼 제출 감지 (form 태그가 있는 경우)
     if (form.formElement) {
       form.formElement.addEventListener('submit', () => {
+        // 제출 전에 저장 확인
         this.onFormSubmit(form);
       });
     }
   }
 
-  private onFieldChanged(form: FormInfo, element: HTMLElement) {
-    // 디바운스를 위해 타이머 사용 (0.5초 후)
-    clearTimeout((element as any)._formationTimer);
-    (element as any)._formationTimer = setTimeout(() => {
-      this.checkForSave(form);
-    }, 500);
+  private setupPageUnloadListener() {
+    // 페이지 이탈 시 폼 태그가 없는 폼들 체크
+    window.addEventListener('beforeunload', () => {
+      this.detectedForms.forEach(form => {
+        // 폼 태그가 없는 경우만 체크 (폴백 처리)
+        if (!form.formElement) {
+          const values = collectFieldValues(form.fields);
+          if (Object.keys(values).length > 0) {
+            // beforeunload에서는 모달을 띄울 수 없으므로 자동 저장
+            this.performSaveIfAllowed(form, values);
+          }
+        }
+      });
+    });
+  }
+
+  private async performSaveIfAllowed(form: FormInfo, values: Record<string, string>) {
+    const key = generateStorageKey(form);
+    const settings = await getSiteSettings(key.origin, key.formSignature);
+    
+    if (settings.saveMode === 'always') {
+      await this.performSave(form, values);
+    }
+    // ask나 never는 페이지 이탈 시점에서는 처리하지 않음
   }
 
   private onFormSubmit(form: FormInfo) {
