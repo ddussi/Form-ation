@@ -11,8 +11,7 @@ export default defineManifest({
     128: 'icons/icon128.png',
   },
   action: {
-    default_popup: 'index.html',
-    default_title: 'Form-ation',
+    default_title: 'Form-ation - 클릭하여 저장 모드 토글',
   },
   background: {
     service_worker: 'src/background/index.ts',

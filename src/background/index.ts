@@ -1,12 +1,69 @@
 import { BrowserNotificationManager } from '../utils/browserNotification.js';
-import { saveFormData, saveSiteSettings } from '../utils/storage.js';
+import { saveFormData, saveSiteSettings, toggleGlobalSaveMode, getGlobalSaveMode } from '../utils/storage.js';
 
 // 알림 매니저 인스턴스 생성
 const notificationManager = new BrowserNotificationManager();
 
-chrome.runtime.onInstalled.addListener((): void => {
+chrome.runtime.onInstalled.addListener(async (): Promise<void> => {
   console.log('[background] installed');
+  
+  // 초기 아이콘 상태 설정
+  await updateIconState();
 });
+
+// 확장 아이콘 클릭 이벤트 처리 (저장 모드 토글)
+chrome.action.onClicked.addListener(async (): Promise<void> => {
+  console.log('[background] 확장 아이콘 클릭됨');
+  
+  try {
+    // 저장 모드 토글
+    const newState = await toggleGlobalSaveMode();
+    
+    // 아이콘 상태 업데이트
+    await updateIconState();
+    
+    // 모든 탭에 상태 변경 알림
+    const tabs = await chrome.tabs.query({});
+    tabs.forEach(tab => {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: 'SAVE_MODE_CHANGED',
+          isEnabled: newState
+        }).catch(() => {
+          // content script가 없는 탭에서는 에러 무시
+        });
+      }
+    });
+    
+    console.log('[background] 저장 모드 토글 완료:', newState ? 'ON' : 'OFF');
+  } catch (error) {
+    console.error('[background] 저장 모드 토글 실패:', error);
+  }
+});
+
+/**
+ * 저장 모드 상태에 따라 확장 아이콘 상태를 업데이트합니다
+ */
+async function updateIconState(): Promise<void> {
+  try {
+    const saveMode = await getGlobalSaveMode();
+    
+    if (saveMode.isEnabled) {
+      // ON 상태: 빨간 배지 표시
+      await chrome.action.setBadgeText({ text: 'ON' });
+      await chrome.action.setBadgeBackgroundColor({ color: '#FF4444' });
+      await chrome.action.setTitle({ title: 'Form-ation 저장 모드: ON (클릭하여 OFF)' });
+    } else {
+      // OFF 상태: 배지 없음
+      await chrome.action.setBadgeText({ text: '' });
+      await chrome.action.setTitle({ title: 'Form-ation 저장 모드: OFF (클릭하여 ON)' });
+    }
+    
+    console.log('[background] 아이콘 상태 업데이트됨:', saveMode.isEnabled ? 'ON' : 'OFF');
+  } catch (error) {
+    console.error('[background] 아이콘 상태 업데이트 실패:', error);
+  }
+}
 
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse): boolean | void => {
   console.log('[Background] 메시지 받음:', message);
@@ -18,6 +75,11 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse): b
   switch (msg.type) {
     case 'PING':
       sendResponse({ type: 'PONG', from: 'background' });
+      return true;
+
+    case 'UPDATE_ICON_STATE':
+      // Content script에서 상태 변경 요청
+      updateIconState();
       return true;
 
     case 'SHOW_SAVE_NOTIFICATION':

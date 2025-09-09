@@ -1,5 +1,5 @@
 import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues } from '../utils/formDetection.js';
-import { saveFormData, getSiteSettings, saveSiteSettings, getFormData } from '../utils/storage.js';
+import { saveFormData, getSiteSettings, saveSiteSettings, getFormData, getGlobalSaveMode, setGlobalSaveMode } from '../utils/storage.js';
 import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '../utils/autofill.js';
 import { toastManager } from '../utils/toastManager.js';
 import { notificationBridge } from '../utils/notificationBridge.js';
@@ -33,7 +33,24 @@ class FormManager {
     this.isInitialized = true;
 
     console.log('[FormManager] 초기화 시작...');
+    this.setupMessageListener();
     this.detectAndSetupForms();
+  }
+
+  private setupMessageListener() {
+    // Background script에서 보내는 메시지 처리
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message?.type === 'SAVE_MODE_CHANGED') {
+        console.log('[FormManager] 저장 모드 변경됨:', message.isEnabled ? 'ON' : 'OFF');
+        
+        // 저장 모드가 변경되었을 때 필요한 처리
+        if (message.isEnabled) {
+          toastManager.info('💾 저장 모드 활성화됨', 2000);
+        } else {
+          toastManager.info('💾 저장 모드 비활성화됨', 2000);
+        }
+      }
+    });
   }
 
   private async detectAndSetupForms() {
@@ -113,10 +130,17 @@ class FormManager {
     
     if (!hasValues) return;
     
+    // 글로벌 저장 모드 확인 - OFF면 저장 안함
+    const globalSaveMode = await getGlobalSaveMode();
+    if (!globalSaveMode.isEnabled) {
+      console.log('[FormManager] 저장 모드 OFF - 저장 생략');
+      return;
+    }
+    
     const key = generateStorageKey(form);
     const storageKey = storageKeyToString(key);
     
-    console.log('[FormManager] 저장 가능한 값 감지:', {
+    console.log('[FormManager] 저장 가능한 값 감지 (저장 모드 ON):', {
       storageKey,
       values
     });
@@ -228,6 +252,18 @@ class FormManager {
       // 저장 완료 토스트 표시
       const fieldCount = Object.keys(values).length;
       toastManager.success(`폼 데이터 저장됨 (${fieldCount}개 필드)`);
+      
+      // 저장 완료 후 자동으로 저장 모드 OFF
+      await setGlobalSaveMode(false);
+      
+      // Background script에 상태 변경 알림
+      chrome.runtime.sendMessage({
+        type: 'UPDATE_ICON_STATE'
+      }).catch(() => {
+        // 에러 무시 (background script가 없을 수도 있음)
+      });
+      
+      console.log('[FormManager] 저장 모드 자동 OFF 설정됨');
       
     } catch (error) {
       console.error('[FormManager] 저장 실패:', error);

@@ -13,6 +13,14 @@ export interface SiteSettings {
 }
 
 /**
+ * 글로벌 저장 모드 상태
+ */
+export interface GlobalSaveMode {
+  isEnabled: boolean;
+  lastToggleTime: number;
+}
+
+/**
  * 폼 데이터를 chrome.storage.local에 저장합니다
  */
 export async function saveFormData(
@@ -152,4 +160,59 @@ export async function clearSiteData(origin: string): Promise<void> {
     await chrome.storage.local.remove(keysToRemove);
     console.log('[Storage] 사이트 데이터 삭제됨:', { origin, removedKeys: keysToRemove });
   }
+}
+
+// ============================================================================
+// 글로벌 저장 모드 관리 함수들 (확장 아이콘 토글용)
+// ============================================================================
+
+const GLOBAL_SAVE_MODE_KEY = 'global_save_mode';
+
+/**
+ * 글로벌 저장 모드 상태를 가져옵니다
+ */
+export async function getGlobalSaveMode(): Promise<GlobalSaveMode> {
+  const result = await chrome.storage.local.get(GLOBAL_SAVE_MODE_KEY);
+  const data = result[GLOBAL_SAVE_MODE_KEY] as GlobalSaveMode | undefined;
+  
+  // 기본값: OFF 상태
+  const defaultMode: GlobalSaveMode = {
+    isEnabled: false,
+    lastToggleTime: Date.now()
+  };
+  
+  return data || defaultMode;
+}
+
+/**
+ * 글로벌 저장 모드 상태를 설정합니다
+ */
+export async function setGlobalSaveMode(isEnabled: boolean): Promise<void> {
+  const saveMode: GlobalSaveMode = {
+    isEnabled,
+    lastToggleTime: Date.now()
+  };
+  
+  await chrome.storage.local.set({
+    [GLOBAL_SAVE_MODE_KEY]: saveMode
+  });
+  
+  console.log('[Storage] 글로벌 저장 모드 변경됨:', saveMode);
+}
+
+/**
+ * 글로벌 저장 모드를 토글합니다
+ */
+export async function toggleGlobalSaveMode(): Promise<boolean> {
+  const currentMode = await getGlobalSaveMode();
+  const newState = !currentMode.isEnabled;
+  
+  await setGlobalSaveMode(newState);
+  
+  console.log('[Storage] 저장 모드 토글됨:', { 
+    이전: currentMode.isEnabled ? 'ON' : 'OFF', 
+    현재: newState ? 'ON' : 'OFF' 
+  });
+  
+  return newState;
 }
