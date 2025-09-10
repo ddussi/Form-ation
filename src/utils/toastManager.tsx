@@ -159,7 +159,7 @@ export class ToastManager {
 
     // 자동 숨김 타이머 설정
     this.currentToast = {
-      timeout: setTimeout(() => {
+      timeout: window.setTimeout(() => {
         this.hide();
       }, duration)
     };
@@ -167,7 +167,7 @@ export class ToastManager {
 
   hide() {
     if (this.currentToast?.timeout) {
-      clearTimeout(this.currentToast.timeout);
+      window.clearTimeout(this.currentToast.timeout);
       this.currentToast = null;
     }
 
