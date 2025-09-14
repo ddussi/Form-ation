@@ -1,6 +1,6 @@
-import type { FormField, FormInfo, StorageKey } from '../types/form.js';
-import { SUPPORTED_INPUT_TYPES } from '../types/form.js';
-import { filterSensitiveFields } from './fieldFiltering.js';
+import type { FormField, FormInfo, StorageKey } from '../types/form';
+import { SUPPORTED_INPUT_TYPES } from '../types/form';
+import { filterSensitiveFields } from './fieldFiltering';
 
 /**
  * 페이지에서 모든 대상 필드를 수집합니다

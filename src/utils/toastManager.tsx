@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
-import { Toast } from '../components/Toast.js';
-import type { ToastType } from '../components/Toast.js';
+import { Toast } from '../components/Toast';
+import type { ToastType } from '../components/Toast';
 
 export class ToastManager {
   private root: Root | null = null;

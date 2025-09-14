@@ -1,4 +1,4 @@
-import type { FormField, FormInfo, StoredFormData } from '../types/form.js';
+import type { FormField, FormInfo, StoredFormData } from '../types/form';
 
 /**
  * 자동입력을 위한 필드 매칭 결과

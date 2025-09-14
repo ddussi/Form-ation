@@ -1,5 +1,5 @@
-import { BrowserNotificationManager } from '../utils/browserNotification.js';
-import { saveFormData, saveSiteSettings, toggleGlobalSaveMode, getGlobalSaveMode } from '../utils/storage.js';
+import { BrowserNotificationManager } from '../utils/browserNotification';
+import { saveFormData, saveSiteSettings, toggleGlobalSaveMode, getGlobalSaveMode } from '../utils/storage';
 
 // 알림 매니저 인스턴스 생성
 const notificationManager = new BrowserNotificationManager();

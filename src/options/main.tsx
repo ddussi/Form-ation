@@ -7,9 +7,9 @@ import {
   deleteAllData, 
   updateFormSettings,
   getStorageInfo 
-} from '../utils/optionsStorage.js'
-import type { FormDataItem } from '../utils/optionsStorage.js'
-import type { SiteSettings } from '../utils/storage.js'
+} from '../utils/optionsStorage'
+import type { FormDataItem } from '../utils/optionsStorage'
+import type { SiteSettings } from '../utils/storage'
 import './options.css'
 
 function Options() {

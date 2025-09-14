@@ -1,6 +1,6 @@
 // Options 페이지에서 사용할 저장소 관리 유틸리티
 
-import type { StoredFormData, SiteSettings } from './storage.js';
+import type { StoredFormData, SiteSettings } from './storage';
 
 export interface FormDataItem {
   storageKey: string;

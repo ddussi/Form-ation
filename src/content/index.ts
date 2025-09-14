@@ -1,10 +1,10 @@
-import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues } from '../utils/formDetection.js';
-import { saveFormData, getSiteSettings, saveSiteSettings, getFormData, getGlobalSaveMode, setGlobalSaveMode } from '../utils/storage.js';
-import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '../utils/autofill.js';
-import { toastManager } from '../utils/toastManager.js';
-import { notificationBridge } from '../utils/notificationBridge.js';
-import { ModalManager } from './ModalManager.js';
-import type { FormInfo } from '../types/form.js';
+import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues } from '../utils/formDetection';
+import { saveFormData, getSiteSettings, saveSiteSettings, getFormData, getGlobalSaveMode, setGlobalSaveMode } from '../utils/storage';
+import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '../utils/autofill';
+import { toastManager } from '../utils/toastManager';
+import { notificationBridge } from '../utils/notificationBridge';
+import { ModalManager } from './ModalManager';
+import type { FormInfo } from '../types/form';
 
 class FormManager {
   private detectedForms: FormInfo[] = [];
@@ -292,7 +292,7 @@ class FormManager {
   }
 
   public getStorageDebugInfo() {
-    import('../utils/storage.js').then(async ({ getAllStoredData }) => {
+    import('../utils/storage').then(async ({ getAllStoredData }) => {
       const data = await getAllStoredData();
       console.log('[FormManager] 저장된 모든 데이터:', data);
     });

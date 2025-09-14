@@ -1,8 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
-import { SaveConfirmModal } from '../components/SaveConfirmModal.js';
-import { AutofillConfirmModal } from '../components/AutofillConfirmModal.js';
-import type { FormInfo } from '../types/form.js';
+import { SaveConfirmModal } from '../components/SaveConfirmModal';
+import { AutofillConfirmModal } from '../components/AutofillConfirmModal';
+import type { FormInfo } from '../types/form';
 
 export class ModalManager {
   private root: Root | null = null;
