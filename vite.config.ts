@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
     minify: 'esbuild',
   },
   esbuild: {
-    // 프로덕션 빌드에서 console 및 debugger 제거
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    // 디버깅을 위해 임시로 console.log 유지
+    drop: mode === 'production' ? ['debugger'] : [], // console 제거 비활성화
   },
 }));
