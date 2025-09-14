@@ -86,14 +86,10 @@ class FormManager {
   private setupFormListeners(form: FormInfo) {
     // 폼 제출 감지 (form 태그가 있는 경우)
     if (form.formElement) {
-      console.log('[FormManager] ✅ 폼 submit 리스너 등록:', form.signature);
       form.formElement.addEventListener('submit', () => {
         // 제출 전에 저장 확인
-        console.log('[FormManager] ✅ submit 이벤트 발생!', form.signature);
         this.onFormSubmit(form);
       });
-    } else {
-      console.log('[FormManager] ⚠️ 폼 태그 없음 (페이지 레벨):', form.signature);
     }
   }
 
@@ -124,28 +120,20 @@ class FormManager {
   }
 
   private onFormSubmit(form: FormInfo) {
-    console.log('[FormManager] ✅ 폼 제출 감지:', form.signature);
+    console.log('[FormManager] 폼 제출 감지:', form.signature);
     this.checkForSave(form);
   }
 
   private async checkForSave(form: FormInfo) {
-    console.log('[FormManager] ✅ checkForSave 호출됨');
     const values = collectFieldValues(form.fields);
     const hasValues = Object.keys(values).length > 0;
     
-    console.log('[FormManager] 수집된 값들:', values, '개수:', Object.keys(values).length);
-    
-    if (!hasValues) {
-      console.log('[FormManager] ❌ 입력값이 없어서 저장 안함');
-      return;
-    }
+    if (!hasValues) return;
     
     // 글로벌 저장 모드 확인 - OFF면 저장 안함
     const globalSaveMode = await getGlobalSaveMode();
-    console.log('[FormManager] 글로벌 저장 모드 상태:', globalSaveMode);
-    
     if (!globalSaveMode.isEnabled) {
-      console.log('[FormManager] ❌ 저장 모드 OFF - 저장 생략');
+      console.log('[FormManager] 저장 모드 OFF - 저장 생략');
       return;
     }
     
