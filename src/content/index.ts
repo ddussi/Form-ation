@@ -4,7 +4,11 @@ import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '..
 import { toastManager } from '../utils/toastManager';
 import { notificationBridge } from '../utils/notificationBridge';
 import { ModalManager } from './ModalManager';
+import { SelectorMode, type SelectorModeCallbacks } from './SelectorMode';
+import { AutoFillSuggester, type AutoFillSuggesterCallbacks } from './AutoFillSuggester';
+import { saveFieldMemory, generateUrlPattern } from '../utils/fieldStorage';
 import type { FormInfo } from '../types/form';
+import type { FieldMemory, FieldData } from '../types/fieldMemory';
 
 class FormManager {
   private detectedForms: FormInfo[] = [];
@@ -13,6 +17,10 @@ class FormManager {
   private pendingSaves = new Map<string, { form: FormInfo; values: Record<string, string> }>();
   private autofillQueue: Array<{ form: FormInfo; storedData: any; previewData: Record<string, string> }> = [];
   private isProcessingAutofill = false;
+  
+  // 새로운 셀렉터 모드 시스템
+  private selectorMode: SelectorMode;
+  private autoFillSuggester: AutoFillSuggester;
 
   constructor() {
     this.modalManager = new ModalManager();
