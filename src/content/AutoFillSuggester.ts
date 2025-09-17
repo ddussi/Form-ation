@@ -2,16 +2,16 @@
  * 자동 입력 제안 시스템: 저장된 필드 메모리를 기반으로 자동 입력을 제안
  */
 
-import type {
-  FieldMemory,
-  FieldData,
-  AutoFillResult,
-  MatchConfidence,
+import {
+  type FieldMemory,
+  type FieldData,
+  type AutoFillResult,
+  type MatchConfidence,
+  MatchConfidence as MatchConfidenceValues,
 } from '../types/fieldMemory';
 import {
   getFieldMemoriesByUrl,
   recordFieldMemoryUsage,
-  updateFieldMemory,
 } from '../utils/fieldStorage';
 
 export interface AutoFillSuggesterCallbacks {
@@ -81,7 +81,7 @@ export class AutoFillSuggester {
     for (const memory of memories) {
       const matches = await this.findFieldMatches(memory);
       const validMatches = matches.filter(match => 
-        match.element && match.confidence !== 'failed'
+        match.element && match.confidence !== MatchConfidenceValues.FAILED
       );
 
       if (validMatches.length > 0) {
@@ -320,7 +320,7 @@ export class AutoFillSuggester {
     const failedFields: string[] = [];
 
     for (const match of matches) {
-      if (match.element && match.confidence !== 'failed') {
+      if (match.element && match.confidence !== MatchConfidenceValues.FAILED) {
         try {
           await this.fillField(match.element, match.field.value);
           filledCount++;
@@ -357,7 +357,7 @@ export class AutoFillSuggester {
 
     for (const field of memory.fields) {
       const element = document.querySelector(field.selector) as HTMLElement;
-      let confidence: MatchConfidence = 'failed';
+      let confidence: MatchConfidence = MatchConfidenceValues.FAILED;
       let reason = '셀렉터로 요소를 찾을 수 없음';
 
       if (element) {
@@ -386,7 +386,7 @@ export class AutoFillSuggester {
 
     // 1. 요소 타입 확인
     if (!this.isInputElement(element)) {
-      return { confidence: 'failed', reason: '입력 요소가 아님' };
+      return { confidence: MatchConfidenceValues.FAILED, reason: '입력 요소가 아님' };
     }
 
     // 2. 필드 타입 매칭
@@ -394,7 +394,7 @@ export class AutoFillSuggester {
     if (currentType !== field.type) {
       // 호환 가능한 타입인지 확인
       if (!this.areTypesCompatible(currentType, field.type)) {
-        return { confidence: 'low', reason: `타입 불일치 (${currentType} vs ${field.type})` };
+        return { confidence: MatchConfidenceValues.LOW, reason: `타입 불일치 (${currentType} vs ${field.type})` };
       }
     }
 
@@ -403,17 +403,17 @@ export class AutoFillSuggester {
     const labelSimilarity = this.calculateLabelSimilarity(currentLabel, field.label);
 
     // 4. 신뢰도 계산
-    let confidence: MatchConfidence = 'exact';
+    let confidence: MatchConfidence = MatchConfidenceValues.EXACT;
     let reason = '완전 매칭';
 
     if (currentType !== field.type) {
-      confidence = 'medium';
+      confidence = MatchConfidenceValues.MEDIUM;
       reason = '호환 가능한 타입';
     } else if (labelSimilarity < 0.5) {
-      confidence = 'medium';
+      confidence = MatchConfidenceValues.MEDIUM;
       reason = '라벨 유사성 낮음';
     } else if (labelSimilarity > 0.8) {
-      confidence = 'high';
+      confidence = MatchConfidenceValues.HIGH;
       reason = '높은 유사성';
     }
 
@@ -518,7 +518,7 @@ export class AutoFillSuggester {
   /**
    * 수정 처리
    */
-  private handleEdit(memory: FieldMemory): void {
+  private handleEdit(_memory: FieldMemory): void {
     // TODO: 필드 편집 모달 표시
     this.showToast('✏️ 편집 기능은 곧 추가됩니다', 'info');
     this.hideSuggestionModal();

@@ -7,6 +7,8 @@ import type {
   FieldMemory,
   FieldMemoryStats,
   UrlMatchingOptions,
+} from '../types/fieldMemory';
+import {
   DEFAULT_URL_MATCHING_OPTIONS,
 } from '../types/fieldMemory';
 
@@ -146,7 +148,6 @@ export async function saveFieldMemory(memory: Omit<FieldMemory, 'id' | 'timestam
  */
 export async function getFieldMemoriesByUrl(url: string): Promise<FieldMemory[]> {
   const settings = await getSettings();
-  const pattern = generateUrlPattern(url, settings.urlMatchingOptions);
   
   const index = await getIndex();
   const memories: FieldMemory[] = [];

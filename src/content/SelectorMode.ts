@@ -6,8 +6,8 @@ import type {
   FieldData,
   FieldSelectionState,
   SelectorModeOptions,
-  SelectorStrategy,
-  SUPPORTED_FIELD_TYPES,
+} from '../types/fieldMemory';
+import {
   DEFAULT_SELECTOR_MODE_OPTIONS,
 } from '../types/fieldMemory';
 
@@ -162,7 +162,12 @@ export class SelectorMode {
     }
 
     // 4. 읽기 전용 확인
-    if (input.readOnly || input.disabled) {
+    if (input.disabled) {
+      return false;
+    }
+    
+    // readOnly는 HTMLInputElement와 HTMLTextAreaElement에만 존재
+    if ((input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) && input.readOnly) {
       return false;
     }
 
@@ -507,7 +512,7 @@ export class SelectorMode {
     this.addHighlight(element, 'selected');
     this.updateControlPanelContent();
 
-    console.log('[SelectorMode] 필드 선택됨:', fieldData.label || fieldData.selector);
+    console.log('[SelectorMode] 필드 선택됨:', fieldData.label || selector);
 
     if (this.callbacks.onFieldSelected) {
       this.callbacks.onFieldSelected(selectionState);
@@ -597,7 +602,7 @@ export class SelectorMode {
       value: input.value || '',
       label: this.extractFieldLabel(element),
       type: this.getFieldType(input),
-      placeholder: input.placeholder || undefined,
+      placeholder: (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) ? input.placeholder || undefined : undefined,
       isRequired: input.required || false,
       maxLength: input instanceof HTMLInputElement ? input.maxLength : undefined,
     };

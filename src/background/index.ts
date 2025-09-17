@@ -24,7 +24,7 @@ chrome.action.onClicked.addListener(async (): Promise<void> => {
     
     // 모든 탭에 상태 변경 알림
     const tabs = await chrome.tabs.query({});
-    tabs.forEach(tab => {
+    tabs.forEach((tab: any) => {
       if (tab.id) {
         chrome.tabs.sendMessage(tab.id, {
           type: 'SAVE_MODE_CHANGED',
@@ -65,7 +65,7 @@ async function updateIconState(): Promise<void> {
   }
 }
 
-chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse): boolean | void => {
+chrome.runtime.onMessage.addListener((message: unknown, sender: any, sendResponse: any): boolean | void => {
   console.log('[Background] 메시지 받음:', message);
   
   if (!message || typeof message !== 'object') return;
@@ -86,7 +86,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse): b
       console.log('[Background] 저장 알림 요청:', msg);
       
       // 알림 권한 확인
-      chrome.notifications.getPermissionLevel((level) => {
+      chrome.notifications.getPermissionLevel((level: any) => {
         console.log('[Background] 알림 권한 레벨:', level);
         
         if (level === 'denied') {

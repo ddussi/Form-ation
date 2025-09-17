@@ -14,7 +14,7 @@ export class BrowserNotificationManager {
 
   private setupEventListeners() {
     // 알림 버튼 클릭 처리
-    chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+    chrome.notifications.onButtonClicked.addListener((notificationId: any, buttonIndex: any) => {
       const callbacks = this.activeNotifications.get(notificationId);
       if (!callbacks) return;
 
@@ -34,7 +34,7 @@ export class BrowserNotificationManager {
     });
 
     // 알림 닫기 처리
-    chrome.notifications.onClosed.addListener((notificationId) => {
+    chrome.notifications.onClosed.addListener((notificationId: any) => {
       const callbacks = this.activeNotifications.get(notificationId);
       if (callbacks) {
         callbacks.onCancel(); // 닫기는 취소로 처리

@@ -149,21 +149,25 @@ export interface FieldValidation {
 /**
  * 셀렉터 생성 전략
  */
-export enum SelectorStrategy {
-  NAME_ATTRIBUTE = 'name',       // name 속성 우선
-  ID_ATTRIBUTE = 'id',           // id 속성 우선  
-  CLASS_BASED = 'class',         // 클래스 기반
-  POSITION_BASED = 'position',   // 위치 기반 (nth-child)
-  HYBRID = 'hybrid',             // 복합 전략
-}
+export const SelectorStrategy = {
+  NAME_ATTRIBUTE: 'name',       // name 속성 우선
+  ID_ATTRIBUTE: 'id',           // id 속성 우선  
+  CLASS_BASED: 'class',         // 클래스 기반
+  POSITION_BASED: 'position',   // 위치 기반 (nth-child)
+  HYBRID: 'hybrid',             // 복합 전략
+} as const;
+
+export type SelectorStrategy = typeof SelectorStrategy[keyof typeof SelectorStrategy];
 
 /**
  * 필드 매칭 신뢰도
  */
-export enum MatchConfidence {
-  EXACT = 'exact',               // 완전 일치
-  HIGH = 'high',                 // 높은 신뢰도
-  MEDIUM = 'medium',             // 중간 신뢰도  
-  LOW = 'low',                   // 낮은 신뢰도
-  FAILED = 'failed',             // 매칭 실패
-}
+export const MatchConfidence = {
+  EXACT: 'exact',               // 완전 일치
+  HIGH: 'high',                 // 높은 신뢰도
+  MEDIUM: 'medium',             // 중간 신뢰도  
+  LOW: 'low',                   // 낮은 신뢰도
+  FAILED: 'failed',             // 매칭 실패
+} as const;
+
+export type MatchConfidence = typeof MatchConfidence[keyof typeof MatchConfidence];

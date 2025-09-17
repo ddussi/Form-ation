@@ -52,7 +52,7 @@ export class NotificationBridge {
         siteName,
         formData, // 🔑 저장할 데이터 포함
         requestId
-      }, (response) => {
+      }, (response: any) => {
         console.log('[NotificationBridge] sendMessage 응답:', response);
         if (chrome.runtime.lastError) {
           console.error('[NotificationBridge] sendMessage 에러:', chrome.runtime.lastError);
