@@ -14,13 +14,13 @@ export default defineManifest({
     default_title: 'Form-ation - 클릭하여 저장 모드 토글',
   },
   background: {
-    service_worker: 'src/background/index.ts',
+    service_worker: 'src/pages/background/BackgroundScript.ts',
     type: 'module',
   },
   content_scripts: [
     {
       matches: ['<all_urls>'],
-      js: ['src/content/index.ts'],
+      js: ['src/pages/content/ContentScript.ts'],
       run_at: 'document_idle',
     },
   ],
