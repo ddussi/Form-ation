@@ -1,5 +1,5 @@
-import type { UrlMatchingOptions } from '../../shared/types';
-import { DEFAULT_URL_MATCHING_OPTIONS } from '../../shared/types';
+import type { UrlMatchingOptions } from '../../types/fieldMemory';
+import { DEFAULT_URL_MATCHING_OPTIONS } from '../../types/fieldMemory';
 
 /**
  * URL에서 패턴 생성 (매칭용)

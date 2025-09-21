@@ -3,7 +3,12 @@
  */
 
 import type { FormOrchestrator } from '../FormOrchestrator';
-import type { ChromeMessage } from '../../../infrastructure/messaging';
+
+interface SimpleMessage {
+  type: string;
+  isEnabled?: boolean;
+  [key: string]: any;
+}
 
 export class MessageHandler {
   private orchestrator: FormOrchestrator;
@@ -14,16 +19,16 @@ export class MessageHandler {
 
   setup() {
     // Background script에서 보내는 메시지 처리
-    chrome.runtime.onMessage.addListener((message: ChromeMessage) => {
+    chrome.runtime.onMessage.addListener((message: SimpleMessage) => {
       this.handleMessage(message);
     });
   }
 
-  private handleMessage(message: ChromeMessage) {
+  private handleMessage(message: SimpleMessage) {
     switch (message.type) {
       case 'SAVE_MODE_CHANGED':
         console.log('[MessageHandler] 저장 모드 변경됨:', message.isEnabled ? 'ON' : 'OFF');
-        this.orchestrator.handleSaveModeChanged(message.isEnabled);
+        this.orchestrator.handleSaveModeChanged(message.isEnabled || false);
         break;
         
       case 'ACTIVATE_SELECTOR_MODE':

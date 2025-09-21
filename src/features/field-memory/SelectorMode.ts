@@ -6,10 +6,10 @@ import type {
   FieldData,
   FieldSelectionState,
   SelectorModeOptions,
-} from '../../shared/types';
+} from '../../types/fieldMemory';
 import {
   DEFAULT_SELECTOR_MODE_OPTIONS,
-} from '../../shared/types';
+} from '../../types/fieldMemory';
 
 export interface SelectorModeCallbacks {
   onFieldSelected?: (field: FieldSelectionState) => void;
