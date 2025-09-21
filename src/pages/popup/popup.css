@@ -1,0 +1,174 @@
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  min-height: 400px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  background: #ffffff;
+  color: #333333;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Popup Container */
+.popup-container {
+  padding: 16px;
+  width: 320px;
+  min-height: 400px;
+}
+
+.popup-container.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  text-align: center;
+}
+
+.loading-spinner span {
+  font-size: 24px;
+  display: block;
+  margin-bottom: 8px;
+  animation: spin 1.5s linear infinite;
+}
+
+.loading-spinner p {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Header */
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  font-size: 20px;
+}
+
+.logo h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.version {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Sections */
+.section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.section:last-of-type {
+  margin-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.section-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-weight: 500;
+  color: #374151;
+  flex: 1;
+}
+
+.section-description {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.quick-actions .action-button {
+  flex: 1;
+}
+
+/* Responsive */
+@media (max-width: 320px) {
+  .popup-container {
+    width: 280px;
+    padding: 12px;
+  }
+
+  .section {
+    padding: 12px;
+  }
+}
+
+/* Focus styles for accessibility */
+button:focus,
+input:focus,
+select:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+* {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Disabled state */
+.popup-container.loading * {
+  pointer-events: none;
+}

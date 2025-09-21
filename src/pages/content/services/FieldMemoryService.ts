@@ -6,7 +6,7 @@ import { SelectorMode, type SelectorModeCallbacks } from '../../../features/fiel
 import { AutoFillSuggester, type AutoFillSuggesterCallbacks } from '../../../features/auto-suggest';
 import { saveFieldMemory, generateUrlPattern } from '../../../features/field-memory';
 import { toastManager } from '../../../ui/toast';
-import type { FieldData } from '../../../shared/types';
+import type { FieldData } from '../../../types/fieldMemory';
 
 export class FieldMemoryService {
   private selectorMode: SelectorMode;

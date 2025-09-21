@@ -387,3 +387,45 @@ body {
     gap: 5px;
   }
 }
+
+/* 폼 타입 배지 */
+.form-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+}
+
+.form-type-badge.field-memory {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.form-type-badge.legacy {
+  background: #e9ecef;
+  color: #6c757d;
+}
+
+/* 사용 횟수 표시 */
+.usage-count {
+  background: #28a745;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* 필드 메모리 아이템 스타일 강화 */
+.form-item:has(.field-memory) {
+  border-left: 4px solid #667eea;
+  background: linear-gradient(to right, rgba(102, 126, 234, 0.05) 0%, transparent 20%);
+}
+
+.form-item:has(.legacy) {
+  border-left: 4px solid #dee2e6;
+}

@@ -8,7 +8,7 @@ import {
   type AutoFillResult,
   type MatchConfidence,
   MatchConfidence as MatchConfidenceValues,
-} from '../../shared/types';
+} from '../../types/fieldMemory';
 import {
   getFieldMemoriesByUrl,
   recordFieldMemoryUsage,
@@ -117,35 +117,104 @@ export class AutoFillSuggester {
   private async matchFieldsWithMemory(memory: FieldMemory): Promise<FieldMatch[]> {
     const matches: FieldMatch[] = [];
 
+    console.log(`[AutoFillSuggester] 메모리와 필드 매칭 시작 - ${memory.title} (${memory.fields.length}개 필드)`);
+
     for (const fieldData of memory.fields) {
+      console.log(`[AutoFillSuggester] 필드 매칭 시도: "${fieldData.label}" (selector: ${fieldData.selector})`);
+      
       const element = this.findElementBySelector(fieldData.selector);
       
       if (element) {
         const confidence = this.calculateMatchConfidence(fieldData, element);
         
-        matches.push({
+        const match: FieldMatch = {
           memory,
           field: fieldData,
           element,
           confidence,
           reason: this.getMatchReason(fieldData, element, confidence)
-        });
+        };
+        
+        matches.push(match);
+        console.log(`[AutoFillSuggester] ✅ 필드 매칭 성공: "${fieldData.label}" (신뢰도: ${confidence})`);
+      } else {
+        console.log(`[AutoFillSuggester] ❌ 필드 매칭 실패: "${fieldData.label}" - 요소를 찾을 수 없음`);
       }
     }
 
+    console.log(`[AutoFillSuggester] 메모리 매칭 완료: ${matches.length}/${memory.fields.length} 매칭됨`);
     return matches;
   }
 
   /**
-   * CSS 셀렉터로 요소 찾기
+   * CSS 셀렉터로 요소 찾기 (향상된 매칭 로직)
    */
   private findElementBySelector(selector: string): HTMLElement | null {
     try {
-      return document.querySelector(selector) as HTMLElement;
+      console.log('[AutoFillSuggester] 셀렉터로 요소 찾기 시도:', selector);
+      
+      // 1차: 정확한 셀렉터로 시도
+      let element = document.querySelector(selector) as HTMLElement;
+      if (element) {
+        console.log('[AutoFillSuggester] ✅ 셀렉터 매칭 성공:', selector);
+        return element;
+      }
+
+      // 2차: Fallback 전략들 시도
+      console.log('[AutoFillSuggester] ⚠️ 원본 셀렉터 실패, 대체 방법 시도:', selector);
+      
+      // name 속성 기반 매칭
+      const nameMatch = selector.match(/\[name="([^"]+)"\]/);
+      if (nameMatch) {
+        const nameValue = nameMatch[1];
+        element = document.querySelector(`input[name="${nameValue}"], textarea[name="${nameValue}"], select[name="${nameValue}"]`) as HTMLElement;
+        if (element) {
+          console.log('[AutoFillSuggester] ✅ name 속성으로 매칭 성공:', nameValue);
+          return element;
+        }
+      }
+
+      // id 속성 기반 매칭 
+      const idMatch = selector.match(/#([a-zA-Z][\w-]*)/);
+      if (idMatch) {
+        const idValue = idMatch[1];
+        element = document.getElementById(idValue) as HTMLElement;
+        if (element) {
+          console.log('[AutoFillSuggester] ✅ id 속성으로 매칭 성공:', idValue);
+          return element;
+        }
+      }
+
+      // 클래스 기반 매칭 (첫 번째 클래스만)
+      const classMatch = selector.match(/\.([a-zA-Z][\w-]*)/);
+      if (classMatch) {
+        const className = classMatch[1];
+        const elements = document.querySelectorAll(`.${className}`);
+        if (elements.length === 1) {
+          element = elements[0] as HTMLElement;
+          if (this.isInputElement(element)) {
+            console.log('[AutoFillSuggester] ✅ 클래스로 매칭 성공:', className);
+            return element;
+          }
+        }
+      }
+
+      console.log('[AutoFillSuggester] ❌ 모든 매칭 방법 실패:', selector);
+      return null;
+      
     } catch (error) {
-      console.warn('[AutoFillSuggester] 잘못된 셀렉터:', selector, error);
+      console.warn('[AutoFillSuggester] 셀렉터 처리 에러:', selector, error);
       return null;
     }
+  }
+
+  /**
+   * 입력 요소인지 확인
+   */
+  private isInputElement(element: HTMLElement): boolean {
+    return element instanceof HTMLInputElement || 
+           element instanceof HTMLTextAreaElement || 
+           element instanceof HTMLSelectElement;
   }
 
   /**
@@ -341,22 +410,32 @@ export class AutoFillSuggester {
    * 자동 입력 실행
    */
   private async executeAutoFill(matches: FieldMatch[]): Promise<void> {
+    console.log(`[AutoFillSuggester] 자동입력 실행 시작 - ${matches.length}개 매칭된 필드`);
+    
     let filledCount = 0;
     let failedCount = 0;
+    let skippedCount = 0;
     const failedFields: string[] = [];
 
     for (const match of matches) {
       try {
         const input = match.element as HTMLInputElement | HTMLTextAreaElement;
+        const fieldName = match.field.label || match.field.selector;
+        
+        console.log(`[AutoFillSuggester] 필드 처리 중: "${fieldName}"`);
         
         // 이미 값이 있는 필드는 건너뛰기
         if (input.value.trim() !== '') {
-          console.log('[AutoFillSuggester] 기존 값 존재로 건너뛰기:', match.field.label);
+          console.log(`[AutoFillSuggester] ⏭️ 기존 값 존재로 건너뛰기: "${fieldName}" (기존값: "${input.value.trim()}")`);
+          skippedCount++;
           continue;
         }
 
         // 값 설정
-        input.value = match.field.value;
+        const valueToFill = match.field.value;
+        console.log(`[AutoFillSuggester] 💡 값 설정 시도: "${fieldName}" = "${valueToFill}"`);
+        
+        input.value = valueToFill;
         
         // 이벤트 발생
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -364,13 +443,16 @@ export class AutoFillSuggester {
         
         filledCount++;
         
-        console.log('[AutoFillSuggester] 필드 자동 입력:', match.field.label, '=', match.field.value);
+        console.log(`[AutoFillSuggester] ✅ 필드 자동 입력 성공: "${fieldName}"`);
       } catch (error) {
-        console.error('[AutoFillSuggester] 자동 입력 실패:', match.field.label, error);
+        const fieldName = match.field.label || match.field.selector;
+        console.error(`[AutoFillSuggester] ❌ 자동 입력 실패: "${fieldName}"`, error);
         failedCount++;
-        failedFields.push(match.field.label || match.field.selector);
+        failedFields.push(fieldName);
       }
     }
+
+    console.log(`[AutoFillSuggester] 자동입력 실행 완료 - 성공: ${filledCount}, 실패: ${failedCount}, 건너뜀: ${skippedCount}`);
 
     // 사용 기록 업데이트
     if (filledCount > 0) {
@@ -387,8 +469,10 @@ export class AutoFillSuggester {
       failedFields,
       message: filledCount > 0 
         ? `${filledCount}개 필드가 자동으로 입력되었습니다` 
-        : '자동 입력할 수 있는 필드가 없습니다'
+        : `자동 입력할 수 있는 필드가 없습니다 (매칭: ${matches.length}, 건너뜀: ${skippedCount}, 실패: ${failedCount})`
     };
+
+    console.log(`[AutoFillSuggester] 최종 결과:`, result);
 
     if (result.success) {
       this.callbacks.onAutoFillComplete?.(result);

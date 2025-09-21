@@ -200,12 +200,23 @@ function Options() {
                     <div key={item.storageKey} className="form-item">
                       <div className="form-info">
                         <div className="form-title">
-                          <span className="form-path">📄 {item.path}</span>
+                          <span className="form-path">
+                            {item.isFieldMemory ? '📝' : '📄'} {item.path}
+                          </span>
                           <span className="form-signature">{item.formSignature}</span>
+                          {item.isFieldMemory && (
+                            <span className="form-type-badge field-memory">필드 기억 모드</span>
+                          )}
+                          {!item.isFieldMemory && (
+                            <span className="form-type-badge legacy">기존 폼</span>
+                          )}
                         </div>
                         <div className="form-meta">
                           <span>{Object.keys(item.data.fields).length}개 필드</span>
                           <span>{new Date(item.data.timestamp).toLocaleDateString()}</span>
+                          {item.isFieldMemory && item.fieldMemory && (
+                            <span className="usage-count">사용 {item.fieldMemory.useCount || 0}회</span>
+                          )}
                         </div>
                         <div className="form-fields">
                           {Object.entries(item.data.fields).slice(0, 3).map(([field, value]) => (

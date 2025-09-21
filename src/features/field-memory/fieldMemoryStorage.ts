@@ -7,10 +7,10 @@ import type {
   FieldMemory,
   FieldMemoryStats,
   UrlMatchingOptions,
-} from '../../shared/types';
+} from '../../types/fieldMemory';
 import {
   DEFAULT_URL_MATCHING_OPTIONS,
-} from '../../shared/types';
+} from '../../types/fieldMemory';
 import { urlMatches } from './urlPatternMatcher';
 
 /**

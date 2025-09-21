@@ -1,5 +1,5 @@
 import { BrowserNotificationManager } from '../../core/notification';
-import { saveFormData, saveSiteSettings, toggleGlobalSaveMode, getGlobalSaveMode } from '../../core/storage';
+import { saveFormData, saveSiteSettings, getGlobalSaveMode } from '../../core/storage';
 
 // 알림 매니저 인스턴스 생성
 const notificationManager = new BrowserNotificationManager();
@@ -11,13 +11,23 @@ chrome.runtime.onInstalled.addListener(async (): Promise<void> => {
   await updateIconState();
 });
 
-// 확장 아이콘 클릭 이벤트 처리 (저장 모드 토글)
-chrome.action.onClicked.addListener(async (): Promise<void> => {
-  console.log('[background] 확장 아이콘 클릭됨');
+// 팝업 사용으로 인해 action.onClicked는 더 이상 사용하지 않음
+// 대신 popup에서 메시지로 저장 모드 토글을 처리함
+
+/**
+ * 팝업에서 저장 모드 토글 요청 처리
+ */
+async function handleSaveModeToggle(isEnabled: boolean, sendResponse: any): Promise<void> {
+  console.log('[Background] 저장 모드 토글 요청:', isEnabled ? 'ON' : 'OFF');
   
   try {
-    // 저장 모드 토글
-    const newState = await toggleGlobalSaveMode();
+    // 저장 모드 설정
+    await chrome.storage.local.set({
+      globalSaveMode: {
+        isEnabled: isEnabled,
+        lastUpdated: new Date().toISOString()
+      }
+    });
     
     // 아이콘 상태 업데이트
     await updateIconState();
@@ -28,18 +38,24 @@ chrome.action.onClicked.addListener(async (): Promise<void> => {
       if (tab.id) {
         chrome.tabs.sendMessage(tab.id, {
           type: 'SAVE_MODE_CHANGED',
-          isEnabled: newState
+          isEnabled: isEnabled
         }).catch(() => {
           // content script가 없는 탭에서는 에러 무시
         });
       }
     });
     
-    console.log('[background] 저장 모드 토글 완료:', newState ? 'ON' : 'OFF');
+    console.log('[Background] 저장 모드 토글 완료:', isEnabled ? 'ON' : 'OFF');
+    sendResponse({ success: true, isEnabled: isEnabled });
+    
   } catch (error) {
-    console.error('[background] 저장 모드 토글 실패:', error);
+    console.error('[Background] 저장 모드 토글 실패:', error);
+    sendResponse({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
-});
+}
 
 /**
  * 저장 모드 상태에 따라 확장 아이콘 상태를 업데이트합니다
@@ -80,6 +96,23 @@ chrome.runtime.onMessage.addListener((message: unknown, sender: any, sendRespons
     case 'UPDATE_ICON_STATE':
       // Content script에서 상태 변경 요청
       updateIconState();
+      return true;
+
+    case 'GET_SAVE_MODE_STATUS':
+      // 팝업에서 현재 저장 모드 상태 요청
+      getGlobalSaveMode()
+        .then(saveMode => {
+          sendResponse({ isEnabled: saveMode.isEnabled });
+        })
+        .catch(error => {
+          console.error('[Background] 저장 모드 상태 조회 실패:', error);
+          sendResponse({ isEnabled: false });
+        });
+      return true;
+
+    case 'TOGGLE_SAVE_MODE':
+      // 팝업에서 저장 모드 토글 요청
+      handleSaveModeToggle(msg.isEnabled, sendResponse);
       return true;
 
     case 'SHOW_SAVE_NOTIFICATION':

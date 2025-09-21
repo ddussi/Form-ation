@@ -2,4 +2,3 @@
 export * from './form-detection';
 export * from './field-memory';
 export * from './auto-suggest';
-export * from './settings-management';

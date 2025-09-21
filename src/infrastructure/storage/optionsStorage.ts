@@ -1,6 +1,9 @@
 // Options 페이지용 저장소 관리 함수들
 
-import type { SiteSettings, StoredFormData } from '../../shared/types';
+import type { SiteSettings } from '../../shared/types';
+import type { StoredFormData } from '../../types/form';
+import type { FieldMemory } from '../../types/fieldMemory';
+import { getAllFieldMemories, deleteFieldMemory } from '../../features/field-memory/fieldMemoryStorage';
 
 /**
  * Options 페이지에서 사용하는 폼 데이터 항목 타입
@@ -12,16 +15,18 @@ export interface FormDataItem {
   formSignature: string;     // 폼 서명
   data: StoredFormData;      // 저장된 폼 데이터
   settings: SiteSettings;    // 사이트 설정
+  isFieldMemory?: boolean;   // 필드 메모리 데이터 여부
+  fieldMemory?: FieldMemory; // 필드 메모리 원본 데이터 (필드 메모리인 경우)
 }
 
 /**
  * 모든 폼 데이터를 가져와서 Options 페이지용으로 변환
  */
 export async function getAllFormData(): Promise<FormDataItem[]> {
-  const allData = await chrome.storage.local.get(null);
   const formDataItems: FormDataItem[] = [];
   
-  // 폼 데이터 키들만 필터링 (form_ 접두사로 시작)
+  // 1. 기존 폼 데이터 가져오기 (form_ 접두사)
+  const allData = await chrome.storage.local.get(null);
   const formKeys = Object.keys(allData).filter(key => key.startsWith('form_'));
   
   for (const storageKey of formKeys) {
@@ -57,6 +62,49 @@ export async function getAllFormData(): Promise<FormDataItem[]> {
     }
   }
   
+  // 2. 필드 메모리 데이터 가져오기 (field_memory_ 접두사)
+  try {
+    const fieldMemories = await getAllFieldMemories();
+    
+    for (const fieldMemory of fieldMemories) {
+      try {
+        const url = new URL(fieldMemory.url);
+        const origin = url.origin;
+        const path = url.pathname + url.search;
+        
+        // 필드 메모리를 FormDataItem 형식으로 변환
+        const convertedFields: { [key: string]: any } = {};
+        fieldMemory.fields.forEach(field => {
+          convertedFields[field.label || field.selector] = field.value;
+        });
+        
+        const formDataItem: FormDataItem = {
+          storageKey: `field_memory_${fieldMemory.id}`,
+          origin,
+          path,
+          formSignature: fieldMemory.title,
+          data: {
+            fields: convertedFields,
+            timestamp: fieldMemory.timestamp,
+            url: fieldMemory.url,
+          },
+          settings: {
+            saveMode: 'ask',
+            autofillMode: 'ask',
+          },
+          isFieldMemory: true,
+          fieldMemory: fieldMemory,
+        };
+        
+        formDataItems.push(formDataItem);
+      } catch (error) {
+        console.warn('[OptionsStorage] 필드 메모리 변환 실패:', fieldMemory.id, error);
+      }
+    }
+  } catch (error) {
+    console.error('[OptionsStorage] 필드 메모리 로드 실패:', error);
+  }
+  
   // 최신 순으로 정렬
   return formDataItems.sort((a, b) => b.data.timestamp - a.data.timestamp);
 }
@@ -80,14 +128,23 @@ async function getSiteSettings(origin: string, formSignature: string): Promise<S
  * 특정 폼 데이터 삭제
  */
 export async function deleteFormData(storageKey: string): Promise<void> {
-  await chrome.storage.local.remove(storageKey);
-  console.log('[OptionsStorage] 폼 데이터 삭제됨:', storageKey);
+  if (storageKey.startsWith('field_memory_')) {
+    // 필드 메모리 데이터인 경우
+    const memoryId = storageKey.replace('field_memory_', '');
+    await deleteFieldMemory(memoryId);
+    console.log('[OptionsStorage] 필드 메모리 삭제됨:', memoryId);
+  } else {
+    // 기존 폼 데이터인 경우
+    await chrome.storage.local.remove(storageKey);
+    console.log('[OptionsStorage] 폼 데이터 삭제됨:', storageKey);
+  }
 }
 
 /**
  * 특정 사이트의 모든 데이터 삭제
  */
 export async function deleteSiteData(origin: string): Promise<void> {
+  // 1. 기존 폼 데이터 삭제
   const allData = await chrome.storage.local.get(null);
   const keysToRemove: string[] = [];
   
@@ -100,7 +157,31 @@ export async function deleteSiteData(origin: string): Promise<void> {
   
   if (keysToRemove.length > 0) {
     await chrome.storage.local.remove(keysToRemove);
-    console.log('[OptionsStorage] 사이트 데이터 삭제됨:', { origin, keysRemoved: keysToRemove.length });
+  }
+  
+  // 2. 필드 메모리 데이터 삭제
+  try {
+    const fieldMemories = await getAllFieldMemories();
+    const memoriesToDelete = fieldMemories.filter(memory => {
+      try {
+        const memoryUrl = new URL(memory.url);
+        return memoryUrl.origin === origin;
+      } catch {
+        return false;
+      }
+    });
+    
+    for (const memory of memoriesToDelete) {
+      await deleteFieldMemory(memory.id);
+    }
+    
+    console.log('[OptionsStorage] 사이트 데이터 삭제됨:', { 
+      origin, 
+      legacyKeysRemoved: keysToRemove.length,
+      fieldMemoriesRemoved: memoriesToDelete.length
+    });
+  } catch (error) {
+    console.error('[OptionsStorage] 사이트 필드 메모리 삭제 중 오류:', error);
   }
 }
 
@@ -108,8 +189,11 @@ export async function deleteSiteData(origin: string): Promise<void> {
  * 모든 데이터 삭제
  */
 export async function deleteAllData(): Promise<void> {
+  // 1. 모든 Chrome storage 데이터 삭제
   await chrome.storage.local.clear();
-  console.log('[OptionsStorage] 모든 데이터 삭제됨');
+  
+  // 2. 필드 메모리 인덱스도 함께 정리 (clearAllFieldMemories는 이미 clear 후에 호출할 필요 없음)
+  console.log('[OptionsStorage] 모든 데이터 삭제됨 (기존 폼 데이터 + 필드 메모리)');
 }
 
 /**
