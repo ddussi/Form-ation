@@ -1,19 +1,15 @@
-import { createRoot } from 'react-dom/client';
-import type { Root } from 'react-dom/client';
-import { Toast } from '../components/Toast';
-import type { ToastType } from '../components/Toast';
+export type ToastType = 'success' | 'info' | 'warning' | 'error';
 
 export class ToastManager {
-  private root: Root | null = null;
   private container: HTMLDivElement | null = null;
-  private currentToast: { timeout: number | null } | null = null;
+  private currentToast: HTMLDivElement | null = null;
+  private currentTimeout: number | null = null;
 
   constructor() {
     this.createContainer();
   }
 
   private createContainer() {
-    // Shadow DOM을 사용해서 스타일 격리
     this.container = document.createElement('div');
     this.container.id = 'formation-toast-container';
     this.container.style.cssText = `
@@ -23,20 +19,12 @@ export class ToastManager {
       z-index: 1000000;
       pointer-events: none;
     `;
-    
-    // Shadow DOM 생성
-    const shadowRoot = this.container.attachShadow({ mode: 'closed' });
-    
-    // React 루트 컨테이너
-    const reactContainer = document.createElement('div');
-    shadowRoot.appendChild(reactContainer);
-    
-    // CSS를 Shadow DOM에 주입
-    const styleElement = document.createElement('style');
-    styleElement.textContent = this.getToastStyles();
-    shadowRoot.appendChild(styleElement);
-    
-    this.root = createRoot(reactContainer);
+
+    // 스타일 추가
+    const style = document.createElement('style');
+    style.textContent = this.getToastStyles();
+    document.head.appendChild(style);
+
     document.body.appendChild(this.container);
   }
 
@@ -52,7 +40,7 @@ export class ToastManager {
   margin-bottom: 10px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   min-width: 300px;
   max-width: 400px;
   pointer-events: all;
@@ -70,6 +58,17 @@ export class ToastManager {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes formation-toast-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
   }
 }
 
@@ -93,13 +92,6 @@ export class ToastManager {
   background: #fff8f8;
 }
 
-.formation-toast-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
 .formation-toast-icon {
   font-size: 16px;
   line-height: 1;
@@ -108,27 +100,7 @@ export class ToastManager {
 .formation-toast-message {
   color: #333;
   font-weight: 500;
-}
-
-.formation-toast-close {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: #666;
-  cursor: pointer;
-  padding: 0;
-  margin-left: 12px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.formation-toast-close:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  flex: 1;
 }
 
 @media (max-width: 480px) {
@@ -144,38 +116,43 @@ export class ToastManager {
     // 기존 토스트가 있으면 숨기기
     this.hide();
 
-    if (this.container) {
-      this.container.style.pointerEvents = 'all';
-    }
+    const icons = {
+      success: '✅',
+      info: 'ℹ️',
+      warning: '⚠️',
+      error: '❌'
+    };
 
-    this.root?.render(
-      <Toast
-        message={message}
-        type={type}
-        isVisible={true}
-        onHide={() => this.hide()}
-      />
-    );
+    this.currentToast = document.createElement('div');
+    this.currentToast.className = `formation-toast formation-toast-${type}`;
+    this.currentToast.innerHTML = `
+      <span class="formation-toast-icon">${icons[type]}</span>
+      <span class="formation-toast-message">${message}</span>
+    `;
+
+    this.container?.appendChild(this.currentToast);
 
     // 자동 숨김 타이머 설정
-    this.currentToast = {
-      timeout: window.setTimeout(() => {
-        this.hide();
-      }, duration)
-    };
+    this.currentTimeout = window.setTimeout(() => {
+      this.hide();
+    }, duration);
   }
 
   hide() {
-    if (this.currentToast?.timeout) {
-      window.clearTimeout(this.currentToast.timeout);
-      this.currentToast = null;
+    if (this.currentTimeout) {
+      window.clearTimeout(this.currentTimeout);
+      this.currentTimeout = null;
     }
 
-    if (this.container) {
-      this.container.style.pointerEvents = 'none';
+    if (this.currentToast) {
+      this.currentToast.style.animation = 'formation-toast-slide-out 0.3s ease-out';
+      setTimeout(() => {
+        if (this.currentToast) {
+          this.currentToast.remove();
+          this.currentToast = null;
+        }
+      }, 300);
     }
-    
-    this.root?.render(<div />);
   }
 
   // 편의 메소드들
@@ -201,7 +178,6 @@ export class ToastManager {
       document.body.removeChild(this.container);
       this.container = null;
     }
-    this.root = null;
   }
 }
 

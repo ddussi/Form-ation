@@ -711,11 +711,11 @@ export class SelectorMode {
   }
 
   /**
-   * 저장 처리
+   * 저장 처리 (제목은 URL로 자동 생성)
    */
   private handleSave(): void {
     const selectedFields = this.getSelectedFields();
-    
+
     if (selectedFields.length === 0) {
       alert('선택된 필드가 없습니다.');
       return;

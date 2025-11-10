@@ -47,18 +47,21 @@ export class AutoFillSuggester {
 
       if (memories.length > 0) {
         console.log('[AutoFillSuggester] 저장된 필드 메모리 발견:', memories.length);
-        
+
         // 유효한 메모리들만 필터링 (필드가 매칭되는 것들)
         const validMemories = await this.filterValidMemories(memories);
-        
+
         if (validMemories.length > 0) {
+          // 가장 최근 것만 사용
+          const mostRecent = validMemories[0];
+
           if (this.callbacks.onSuggestionFound) {
-            this.callbacks.onSuggestionFound(validMemories);
+            this.callbacks.onSuggestionFound([mostRecent]);
           }
-          
+
           // 자동으로 제안 모달 표시 (딜레이를 두고)
           setTimeout(() => {
-            this.showSuggestionModal(validMemories);
+            this.showSuggestionModal(mostRecent);
           }, 1000);
         }
 
@@ -93,10 +96,10 @@ export class AutoFillSuggester {
   }
 
   /**
-   * 자동 입력 제안 모달 표시
+   * 자동 입력 제안 모달 표시 (가장 최근 1개만)
    */
-  showSuggestionModal(memories: FieldMemory[]): void {
-    if (this.currentSuggestionModal || memories.length === 0) return;
+  showSuggestionModal(memory: FieldMemory): void {
+    if (this.currentSuggestionModal) return;
 
     this.currentSuggestionModal = document.createElement('div');
     this.currentSuggestionModal.className = 'form-ation-autofill-modal';
@@ -120,7 +123,7 @@ export class AutoFillSuggester {
     this.addModalStyles();
 
     // 모달 내용 생성
-    this.updateModalContent(memories);
+    this.updateModalContent(memory);
 
     document.body.appendChild(this.currentSuggestionModal);
 
@@ -163,13 +166,12 @@ export class AutoFillSuggester {
   }
 
   /**
-   * 모달 내용 업데이트
+   * 모달 내용 업데이트 (버튼 2개만)
    */
-  private updateModalContent(memories: FieldMemory[]): void {
+  private updateModalContent(memory: FieldMemory): void {
     if (!this.currentSuggestionModal) return;
 
-    const primaryMemory = memories[0]; // 가장 관련성 높은 메모리
-    const fieldCount = primaryMemory.fields.length;
+    const fieldCount = memory.fields.length;
     const formatDate = (timestamp: number) => new Date(timestamp).toLocaleDateString('ko-KR');
 
     this.currentSuggestionModal.innerHTML = `
@@ -181,92 +183,60 @@ export class AutoFillSuggester {
           이전에 입력했던 데이터로 자동 입력하시겠습니까?
         </p>
       </div>
-      
+
       <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
         <div style="font-weight: bold; color: #333; margin-bottom: 4px;">
-          📅 ${primaryMemory.title || '저장된 폼 데이터'}
+          📅 ${memory.title || '저장된 폼 데이터'}
         </div>
         <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
-          ${formatDate(primaryMemory.timestamp)}에 저장됨
-          ${primaryMemory.useCount > 0 ? ` · ${primaryMemory.useCount}회 사용` : ''}
+          ${formatDate(memory.timestamp)}에 저장됨
+          ${memory.useCount > 0 ? ` · ${memory.useCount}회 사용` : ''}
         </div>
         <div style="font-size: 12px; color: #333;">
-          📝 ${fieldCount}개 필드: ${primaryMemory.fields.slice(0, 3).map(f => f.label).join(', ')}${fieldCount > 3 ? '...' : ''}
+          📝 ${fieldCount}개 필드: ${memory.fields.slice(0, 3).map(f => f.label).join(', ')}${fieldCount > 3 ? '...' : ''}
         </div>
       </div>
-      
-      ${memories.length > 1 ? `
-        <div style="margin-bottom: 16px; font-size: 12px; color: #666;">
-          💡 다른 ${memories.length - 1}개의 저장된 데이터도 있습니다
-        </div>
-      ` : ''}
-      
+
       <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-        <button 
-          id="form-ation-autofill-apply" 
+        <button
+          id="form-ation-autofill-apply"
           style="flex: 1; padding: 12px 16px; border: none; border-radius: 6px; background: #007bff; color: white; cursor: pointer; font-weight: bold; font-size: 14px;"
         >
           🔄 자동 입력
         </button>
-        
-        <button 
-          id="form-ation-autofill-later" 
+
+        <button
+          id="form-ation-autofill-later"
           style="flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; color: #333; cursor: pointer; font-size: 14px;"
         >
           ❌ 나중에
         </button>
       </div>
-      
-      <div style="display: flex; gap: 8px;">
-        <button 
-          id="form-ation-autofill-delete" 
-          style="flex: 1; padding: 8px 12px; border: 1px solid #dc3545; border-radius: 6px; background: white; color: #dc3545; cursor: pointer; font-size: 12px;"
-        >
-          🗑️ 삭제
-        </button>
-        
-        <button 
-          id="form-ation-autofill-edit" 
-          style="flex: 1; padding: 8px 12px; border: 1px solid #6c757d; border-radius: 6px; background: white; color: #6c757d; cursor: pointer; font-size: 12px;"
-        >
-          ✏️ 수정
-        </button>
-      </div>
-      
+
       <div style="margin-top: 12px; font-size: 11px; color: #999; text-align: center;">
         이 알림은 30초 후 자동으로 사라집니다
       </div>
     `;
 
     // 버튼 이벤트 등록
-    this.attachModalEvents(memories);
+    this.attachModalEvents(memory);
   }
 
   /**
-   * 모달 이벤트 등록
+   * 모달 이벤트 등록 (버튼 2개만)
    */
-  private attachModalEvents(memories: FieldMemory[]): void {
+  private attachModalEvents(memory: FieldMemory): void {
     if (!this.currentSuggestionModal) return;
 
     const applyBtn = this.currentSuggestionModal.querySelector('#form-ation-autofill-apply');
     const laterBtn = this.currentSuggestionModal.querySelector('#form-ation-autofill-later');
-    const deleteBtn = this.currentSuggestionModal.querySelector('#form-ation-autofill-delete');
-    const editBtn = this.currentSuggestionModal.querySelector('#form-ation-autofill-edit');
 
     if (applyBtn) {
-      applyBtn.addEventListener('click', () => this.handleAutoFillApply(memories[0]));
+      applyBtn.addEventListener('click', () => this.handleAutoFillApply(memory));
     }
 
     if (laterBtn) {
       laterBtn.addEventListener('click', () => this.hideSuggestionModal());
-    }
-
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => this.handleDelete(memories[0]));
-    }
-
-    if (editBtn) {
-      editBtn.addEventListener('click', () => this.handleEdit(memories[0]));
     }
   }
 
@@ -500,28 +470,6 @@ export class AutoFillSuggester {
       element.style.outline = originalOutline;
       element.style.outlineOffset = '';
     }, 2000);
-  }
-
-  /**
-   * 삭제 처리
-   */
-  private handleDelete(memory: FieldMemory): void {
-    const confirmed = confirm(`"${memory.title || '저장된 폼 데이터'}"를 삭제하시겠습니까?`);
-    
-    if (confirmed) {
-      // TODO: fieldStorage.deleteFieldMemory 호출
-      this.showToast('🗑️ 데이터가 삭제되었습니다', 'info');
-      this.hideSuggestionModal();
-    }
-  }
-
-  /**
-   * 수정 처리
-   */
-  private handleEdit(_memory: FieldMemory): void {
-    // TODO: 필드 편집 모달 표시
-    this.showToast('✏️ 편집 기능은 곧 추가됩니다', 'info');
-    this.hideSuggestionModal();
   }
 
   /**

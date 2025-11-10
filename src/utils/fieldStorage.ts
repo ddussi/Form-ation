@@ -306,8 +306,10 @@ export async function getFieldMemoryStats(): Promise<FieldMemoryStats> {
   
   // 저장 공간 사용량 추정
   const storageSize = JSON.stringify(allMemories).length;
-  
+
   return {
+    totalCount: allMemories.length,
+    totalSize: storageSize,
     totalMemories: allMemories.length,
     totalFields,
     mostUsedSites,

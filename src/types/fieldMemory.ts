@@ -83,6 +83,8 @@ export interface FieldMemoryStorageKey {
  * 필드 기억 통계
  */
 export interface FieldMemoryStats {
+  totalCount: number;            // 전체 메모리 수
+  totalSize: number;             // 전체 크기 (바이트)
   totalMemories: number;
   totalFields: number;
   mostUsedSites: Array<{
