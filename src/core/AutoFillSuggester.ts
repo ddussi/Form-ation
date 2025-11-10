@@ -15,9 +15,9 @@ import {
 import {
   getFieldMemoriesByUrl,
   recordFieldMemoryUsage,
-} from '../utils/fieldStorage';
+} from '../services/fieldStorage';
 import { AutoFillExecutor } from './AutoFillExecutor';
-import { AutoFillModal } from './AutoFillModal';
+import { AutoFillModal } from '../ui/AutoFillModal';
 
 export interface AutoFillSuggesterCallbacks {
   onSuggestionFound?: (memories: FieldMemory[]) => void;

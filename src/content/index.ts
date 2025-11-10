@@ -1,7 +1,7 @@
-import { toastManager } from '../utils/toastManager';
-import { SelectorMode, type SelectorModeCallbacks } from './SelectorMode';
-import { AutoFillSuggester, type AutoFillSuggesterCallbacks } from './AutoFillSuggester';
-import { saveFieldMemory, generateUrlPattern } from '../utils/fieldStorage';
+import { toastManager } from '../ui/toastManager';
+import { SelectorMode, type SelectorModeCallbacks } from '../core/SelectorMode';
+import { AutoFillSuggester, type AutoFillSuggesterCallbacks } from '../core/AutoFillSuggester';
+import { saveFieldMemory, generateUrlPattern } from '../services/fieldStorage';
 import type { FieldMemory, FieldData } from '../types/fieldMemory';
 
 class FormManager {

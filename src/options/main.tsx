@@ -4,7 +4,7 @@ import {
   getAllFieldMemories,
   deleteFieldMemory,
   getFieldMemoryStats,
-} from '../utils/fieldStorage'
+} from '../services/fieldStorage'
 import type { FieldMemory } from '../types/fieldMemory'
 import './options.css'
 
