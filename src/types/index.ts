@@ -9,6 +9,7 @@ export interface FieldData {
   value: string;
   type: string;
   label: string;
+  isStable: boolean;
 }
 
 /** 필드 메모리 (저장 단위) */

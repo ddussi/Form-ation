@@ -9,6 +9,7 @@ export class FieldObserver {
   private callback: FieldDetectedCallback | null = null;
   private hasNotified = false;
   private debounceTimer: number | null = null;
+  private boundCleanup = this.stop.bind(this);
 
   start(fields: FieldData[], callback: FieldDetectedCallback): void {
     this.stop();
@@ -29,6 +30,8 @@ export class FieldObserver {
       childList: true,
       subtree: true,
     });
+
+    window.addEventListener('beforeunload', this.boundCleanup);
   }
 
   stop(): void {
@@ -42,6 +45,8 @@ export class FieldObserver {
     this.fieldsToWatch = [];
     this.callback = null;
     this.hasNotified = false;
+
+    window.removeEventListener('beforeunload', this.boundCleanup);
   }
 
   private debouncedCheck(): void {

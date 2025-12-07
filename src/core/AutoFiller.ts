@@ -41,14 +41,7 @@ export class AutoFiller {
 
   private fillSelectElement(select: HTMLSelectElement, value: string): void {
     for (const option of Array.from(select.options)) {
-      if (option.value === value || option.textContent === value) {
-        select.value = option.value;
-        return;
-      }
-    }
-
-    for (const option of Array.from(select.options)) {
-      if (option.textContent?.includes(value) || value.includes(option.textContent || '')) {
+      if (option.value === value || option.textContent?.trim() === value) {
         select.value = option.value;
         return;
       }

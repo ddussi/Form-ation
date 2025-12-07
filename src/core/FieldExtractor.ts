@@ -1,6 +1,7 @@
 import type { FieldData } from '../types';
 
 const EXCLUDED_TYPES = ['password', 'hidden', 'submit', 'button', 'reset', 'file', 'image'];
+const STABLE_ATTRIBUTES = ['name', 'data-testid', 'data-test-id', 'data-cy'];
 
 export class FieldExtractor {
   isSelectableField(element: HTMLElement): boolean {
@@ -38,33 +39,55 @@ export class FieldExtractor {
   }
 
   extractFieldData(element: HTMLElement): FieldData {
-    const selector = this.generateSelector(element);
+    const { selector, isStable } = this.generateSelector(element);
     const type = this.getFieldType(element);
     const value = this.getFieldValue(element);
     const label = this.extractLabel(element);
 
-    return { selector, type, value, label };
+    return { selector, type, value, label, isStable };
   }
 
-  private generateSelector(element: HTMLElement): string {
+  private generateSelector(element: HTMLElement): { selector: string; isStable: boolean } {
     const input = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
     if (input.name) {
-      return `${element.tagName.toLowerCase()}[name="${input.name}"]`;
+      return {
+        selector: `${element.tagName.toLowerCase()}[name="${input.name}"]`,
+        isStable: true,
+      };
+    }
+
+    for (const attr of STABLE_ATTRIBUTES) {
+      const value = element.getAttribute(attr);
+      if (value) {
+        return {
+          selector: `[${attr}="${value}"]`,
+          isStable: true,
+        };
+      }
     }
 
     if (element.id) {
-      return `#${element.id}`;
+      return {
+        selector: `#${element.id}`,
+        isStable: false,
+      };
     }
 
     if (element.className && input instanceof HTMLInputElement) {
       const firstClass = element.className.split(' ')[0];
       if (firstClass) {
-        return `input.${firstClass}[type="${input.type}"]`;
+        return {
+          selector: `input.${firstClass}[type="${input.type}"]`,
+          isStable: false,
+        };
       }
     }
 
-    return this.generatePositionalSelector(element);
+    return {
+      selector: this.generatePositionalSelector(element),
+      isStable: false,
+    };
   }
 
   private generatePositionalSelector(element: HTMLElement): string {

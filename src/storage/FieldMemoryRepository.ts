@@ -10,6 +10,15 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+function normalizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
 export class FieldMemoryRepository {
   async findAll(): Promise<FieldMemory[]> {
     const result = await chrome.storage.local.get(STORAGE_KEY);
@@ -22,9 +31,10 @@ export class FieldMemoryRepository {
   }
 
   async findByUrl(url: string): Promise<FieldMemory[]> {
+    const normalized = normalizeUrl(url);
     const memories = await this.findAll();
     return memories
-      .filter((m) => m.url === url)
+      .filter((m) => m.url === normalized)
       .sort((a, b) => b.createdAt - a.createdAt);
   }
 
@@ -33,7 +43,7 @@ export class FieldMemoryRepository {
 
     const newMemory: FieldMemory = {
       id: generateId(),
-      url: dto.url,
+      url: normalizeUrl(dto.url),
       alias: dto.alias,
       fields: dto.fields,
       createdAt: Date.now(),

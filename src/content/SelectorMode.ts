@@ -4,6 +4,7 @@ import { overlay, toast, aliasModal } from '../ui';
 
 const HIGHLIGHT_COLOR = '#007bff';
 const SELECTED_COLOR = '#28a745';
+const WARNING_COLOR = '#ffc107';
 
 export interface SelectorModeResult {
   saved: boolean;
@@ -225,7 +226,7 @@ export class SelectorMode {
     this.selectedFields.set(element, fieldData);
 
     element.style.outline = `3px solid ${SELECTED_COLOR}`;
-    this.addCheckIcon(element);
+    this.addCheckIcon(element, fieldData.isStable);
     this.updateControlPanel();
   }
 
@@ -237,13 +238,21 @@ export class SelectorMode {
     this.updateControlPanel();
   }
 
-  private addCheckIcon(element: HTMLElement): void {
-    const icon = document.createElement('div');
-    icon.className = 'formation-check-icon';
-    icon.style.cssText = `
+  private addCheckIcon(element: HTMLElement, isStable: boolean): void {
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'formation-check-icon';
+    iconContainer.style.cssText = `
       position: absolute;
       top: -10px;
       right: -10px;
+      display: flex;
+      gap: 2px;
+      z-index: 2147483645;
+      pointer-events: none;
+    `;
+
+    const checkIcon = document.createElement('div');
+    checkIcon.style.cssText = `
       width: 22px;
       height: 22px;
       background: ${SELECTED_COLOR};
@@ -255,17 +264,36 @@ export class SelectorMode {
       color: white;
       font-size: 12px;
       font-weight: bold;
-      z-index: 2147483645;
-      pointer-events: none;
     `;
-    icon.textContent = '✓';
+    checkIcon.textContent = '✓';
+    iconContainer.appendChild(checkIcon);
+
+    if (!isStable) {
+      const warningIcon = document.createElement('div');
+      warningIcon.style.cssText = `
+        width: 22px;
+        height: 22px;
+        background: ${WARNING_COLOR};
+        border: 2px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+        font-size: 12px;
+        font-weight: bold;
+      `;
+      warningIcon.textContent = '!';
+      warningIcon.title = '이 필드는 불안정할 수 있습니다';
+      iconContainer.appendChild(warningIcon);
+    }
 
     const parent = element.parentElement;
     if (parent && getComputedStyle(parent).position === 'static') {
       parent.style.position = 'relative';
     }
 
-    parent?.appendChild(icon);
+    parent?.appendChild(iconContainer);
   }
 
   private removeCheckIcon(element: HTMLElement): void {

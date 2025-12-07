@@ -4,10 +4,14 @@ import { toast } from '../ui';
 import { selectorMode } from './SelectorMode';
 import { fieldObserver } from './FieldObserver';
 
+declare const globalThis: { __formationInitialized?: boolean };
+
 class ContentManager {
   private initialized = false;
 
   constructor() {
+    if (globalThis.__formationInitialized) return;
+    globalThis.__formationInitialized = true;
     this.init();
   }
 
@@ -67,8 +71,7 @@ class ContentManager {
     const result = await selectorMode.activate();
 
     if (result.saved && result.fields.length > 0) {
-      // Background로 저장 요청
-      chrome.runtime.sendMessage(
+      this.sendMessage(
         {
           type: 'SAVE_MEMORY',
           data: {
@@ -92,7 +95,7 @@ class ContentManager {
 
   private async executeAutoFill(memoryId: string): Promise<AutoFillResult> {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage(
+      this.sendMessage(
         { type: 'GET_MEMORY_BY_ID', id: memoryId },
         (memory: FieldMemory | null) => {
           if (!memory) {
@@ -107,11 +110,7 @@ class ContentManager {
 
           const result = autoFiller.execute(memory.fields);
 
-          // 사용 기록 업데이트
-          chrome.runtime.sendMessage({
-            type: 'RECORD_USAGE',
-            id: memoryId,
-          });
+          this.sendMessage({ type: 'RECORD_USAGE', id: memoryId });
 
           if (result.filledCount > 0) {
             toast.success(`${result.filledCount}개 필드 자동 입력 완료`);
@@ -126,25 +125,42 @@ class ContentManager {
   }
 
   private checkForSavedMemories(): void {
-    chrome.runtime.sendMessage(
+    this.sendMessage(
       { type: 'GET_MEMORIES_FOR_URL', url: window.location.href },
       (memories: FieldMemory[]) => {
         if (!memories || memories.length === 0) return;
 
-        // 모든 저장된 필드를 합쳐서 감시
         const allFields = memories.flatMap((m) => m.fields);
 
         if (allFields.length > 0) {
-          fieldObserver.start(allFields, () => {
-            // 필드가 감지되면 팝업에서 처리하도록 함
-            // Content Script에서는 알림만 표시하지 않음
-            // 사용자가 팝업을 열어서 선택하도록 유도
-          });
+          fieldObserver.start(allFields, () => {});
         }
-      }
+      },
+      true
     );
+  }
+
+  private sendMessage<T>(
+    message: Record<string, unknown>,
+    callback?: (response: T) => void,
+    silent = false
+  ): void {
+    try {
+      chrome.runtime.sendMessage(message, (response: T) => {
+        if (chrome.runtime.lastError) {
+          if (!silent) {
+            toast.error('페이지를 새로고침해주세요.');
+          }
+          return;
+        }
+        callback?.(response);
+      });
+    } catch {
+      if (!silent) {
+        toast.error('페이지를 새로고침해주세요.');
+      }
+    }
   }
 }
 
-// Content Manager 인스턴스 생성
 new ContentManager();
