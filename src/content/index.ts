@@ -1,621 +1,166 @@
-import { detectForms, generateStorageKey, storageKeyToString, collectFieldValues } from '../utils/formDetection';
-import { saveFormData, getSiteSettings, saveSiteSettings, getFormData, getGlobalSaveMode, setGlobalSaveMode } from '../utils/storage';
-import { matchFieldsForAutofill, generatePreviewData, executeAutofill } from '../utils/autofill';
-import { toastManager } from '../utils/toastManager';
-import { notificationBridge } from '../utils/notificationBridge';
-import { ModalManager } from './ModalManager';
-import { SelectorMode, type SelectorModeCallbacks } from './SelectorMode';
-import { AutoFillSuggester, type AutoFillSuggesterCallbacks } from './AutoFillSuggester';
-import { saveFieldMemory, generateUrlPattern } from '../utils/fieldStorage';
-import type { FormInfo } from '../types/form';
-import type { FieldMemory, FieldData } from '../types/fieldMemory';
+import type { FieldMemory, AutoFillResult } from '../types';
+import { autoFiller, fieldMatcher } from '../core';
+import { toast } from '../ui';
+import { selectorMode } from './SelectorMode';
+import { fieldObserver } from './FieldObserver';
 
-class FormManager {
-  private detectedForms: FormInfo[] = [];
-  private isInitialized = false;
-  private modalManager: ModalManager;
-  private pendingSaves = new Map<string, { form: FormInfo; values: Record<string, string> }>();
-  private autofillQueue: Array<{ form: FormInfo; storedData: any; previewData: Record<string, string> }> = [];
-  private isProcessingAutofill = false;
-  
-  // 새로운 셀렉터 모드 시스템
-  private selectorMode: SelectorMode;
-  private autoFillSuggester: AutoFillSuggester;
+declare const globalThis: { __formationInitialized?: boolean };
+
+class ContentManager {
+  private initialized = false;
 
   constructor() {
-    this.modalManager = new ModalManager();
-    
-    // 셀렉터 모드 초기화
-    this.selectorMode = new SelectorMode({}, this.getSelectorModeCallbacks());
-    
-    // 자동 입력 제안 시스템 초기화
-    this.autoFillSuggester = new AutoFillSuggester(this.getAutoFillSuggesterCallbacks());
-    
+    if (globalThis.__formationInitialized) return;
+    globalThis.__formationInitialized = true;
     this.init();
   }
 
-  private init() {
-    // DOM이 완전히 로드된 후 실행
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.initialize());
-    } else {
-      this.initialize();
-    }
-  }
+  private init(): void {
+    if (this.initialized) return;
+    this.initialized = true;
 
-  private initialize() {
-    if (this.isInitialized) return;
-    this.isInitialized = true;
-
-    console.log('[FormManager] 초기화 시작...');
     this.setupMessageListener();
-    this.detectAndSetupForms();
-    
-    // 자동 입력 제안 체크 (폼 감지 후 약간의 딜레이)
-    setTimeout(() => {
-      this.checkFieldMemoryAutoFill();
-    }, 500);
+    this.checkForSavedMemories();
   }
 
-  private setupMessageListener() {
-    // Background script에서 보내는 메시지 처리
-    chrome.runtime.onMessage.addListener((message: any) => {
-      if (message?.type === 'SAVE_MODE_CHANGED') {
-        console.log('[FormManager] 저장 모드 변경됨:', message.isEnabled ? 'ON' : 'OFF');
-        
-        // 저장 모드가 변경되었을 때 필요한 처리
-        if (message.isEnabled) {
-          toastManager.info('💾 저장 모드 활성화됨', 2000);
-        } else {
-          toastManager.info('💾 저장 모드 비활성화됨', 2000);
-        }
-      } else if (message?.type === 'ACTIVATE_SELECTOR_MODE') {
-        // 셀렉터 모드 활성화 요청
-        console.log('[FormManager] 셀렉터 모드 활성화 요청');
-        this.activateSelectorMode();
-      } else if (message?.type === 'DEACTIVATE_SELECTOR_MODE') {
-        // 셀렉터 모드 비활성화 요청
-        console.log('[FormManager] 셀렉터 모드 비활성화 요청');
-        this.deactivateSelectorMode();
+  private setupMessageListener(): void {
+    chrome.runtime.onMessage.addListener(
+      (
+        message: unknown,
+        _sender: unknown,
+        sendResponse: (response?: unknown) => void
+      ): boolean => {
+        this.handleMessage(message as { type: string; [key: string]: unknown }, sendResponse);
+        return true; // 비동기 응답을 위해 true 반환
       }
-    });
+    );
   }
 
-  private async detectAndSetupForms() {
-    // 폼 감지
-    this.detectedForms = detectForms();
-    
-    console.log(`[FormManager] ${this.detectedForms.length}개 폼 감지됨:`);
-    this.detectedForms.forEach((form, index) => {
-      const key = generateStorageKey(form);
-      const storageKey = storageKeyToString(key);
-      
-      console.log(`  폼 ${index + 1}:`, {
-        formElement: form.formElement ? 'form 태그' : '페이지 전체',
-        fieldCount: form.fields.length,
-        signature: form.signature,
-        storageKey,
-        fields: form.fields.map(f => ({ name: f.name, type: f.type }))
-      });
-    });
+  private async handleMessage(
+    message: { type: string; [key: string]: unknown },
+    sendResponse: (response: unknown) => void
+  ): Promise<void> {
+    switch (message.type) {
+      case 'ACTIVATE_SELECTOR_MODE':
+        await this.activateSelectorMode();
+        sendResponse({ success: true });
+        break;
 
-    // 각 폼에 대해 이벤트 리스너 설정
-    this.detectedForms.forEach(form => this.setupFormListeners(form));
-    
-    // 페이지 이탈 시 처리를 위한 리스너 설정
-    this.setupPageUnloadListener();
+      case 'EXECUTE_AUTOFILL':
+        const result = await this.executeAutoFill(message.memoryId as string);
+        sendResponse(result);
+        break;
 
-    // 자동입력 체크 (약간의 딜레이를 두고 실행)
-    setTimeout(() => {
-      this.checkForAutofill();
-    }, 100);
-  }
+      case 'CHECK_FIELD_MATCH':
+        const fields = message.fields as { selector: string; type: string }[];
+        const matchCount = fieldMatcher.countMatches(fields as any);
+        sendResponse({ matchCount });
+        break;
 
-  private setupFormListeners(form: FormInfo) {
-    // 폼 제출 감지 (form 태그가 있는 경우)
-    if (form.formElement) {
-      form.formElement.addEventListener('submit', () => {
-        // 제출 전에 저장 확인
-        this.onFormSubmit(form);
-      });
+      default:
+        sendResponse({ error: 'Unknown message type' });
     }
   }
 
-  private setupPageUnloadListener() {
-    // 페이지 이탈 시 폼 태그가 없는 폼들 체크
-    window.addEventListener('beforeunload', () => {
-      this.detectedForms.forEach(form => {
-        // 폼 태그가 없는 경우만 체크 (폴백 처리)
-        if (!form.formElement) {
-          const values = collectFieldValues(form.fields);
-          if (Object.keys(values).length > 0) {
-            // beforeunload에서는 모달을 띄울 수 없으므로 자동 저장
-            this.performSaveIfAllowed(form, values);
+  private async activateSelectorMode(): Promise<void> {
+    if (selectorMode.isActivated()) {
+      toast.warning('이미 선택 모드가 활성화되어 있습니다.');
+      return;
+    }
+
+    const result = await selectorMode.activate();
+
+    if (result.saved && result.fields.length > 0) {
+      this.sendMessage(
+        {
+          type: 'SAVE_MEMORY',
+          data: {
+            url: window.location.href,
+            alias: result.alias,
+            fields: result.fields,
+          },
+        },
+        (response: { id?: string } | undefined) => {
+          if (response?.id) {
+            toast.success(`"${result.alias}" 저장 완료 (${result.fields.length}개 필드)`);
+          } else {
+            toast.error('저장에 실패했습니다.');
           }
         }
-      });
-    });
-  }
-
-  private async performSaveIfAllowed(form: FormInfo, values: Record<string, string>) {
-    const key = generateStorageKey(form);
-    const settings = await getSiteSettings(key.origin, key.formSignature);
-    
-    if (settings.saveMode === 'always') {
-      await this.performSave(form, values);
-    }
-    // ask나 never는 페이지 이탈 시점에서는 처리하지 않음
-  }
-
-  private onFormSubmit(form: FormInfo) {
-    console.log('[FormManager] 폼 제출 감지:', form.signature);
-    this.checkForSave(form);
-  }
-
-  private async checkForSave(form: FormInfo) {
-    const values = collectFieldValues(form.fields);
-    const hasValues = Object.keys(values).length > 0;
-    
-    if (!hasValues) return;
-    
-    // 글로벌 저장 모드 확인 - OFF면 저장 안함
-    const globalSaveMode = await getGlobalSaveMode();
-    if (!globalSaveMode.isEnabled) {
-      console.log('[FormManager] 저장 모드 OFF - 저장 생략');
-      return;
-    }
-    
-    const key = generateStorageKey(form);
-    const storageKey = storageKeyToString(key);
-    
-    console.log('[FormManager] 저장 가능한 값 감지 (저장 모드 ON):', {
-      storageKey,
-      values
-    });
-    
-    // 사이트 설정 확인
-    const settings = await getSiteSettings(key.origin, key.formSignature);
-    
-    // 중복 모달 방지
-    if (this.pendingSaves.has(storageKey)) {
-      console.log('[FormManager] 이미 저장 모달이 표시 중:', storageKey);
-      return;
-    }
-    
-    switch (settings.saveMode) {
-      case 'always':
-        // 바로 저장
-        await this.performSave(form, values);
-        break;
-        
-      case 'never':
-        // 저장하지 않음
-        console.log('[FormManager] 저장 안 함 (사용자 설정):', storageKey);
-        break;
-        
-      case 'ask':
-      default:
-        // 🎉 브라우저 알림으로 변경 (페이지 이동과 독립적)
-        await this.showSaveConfirmNotification(form, values);
-        break;
+      );
+    } else if (!result.saved) {
+      toast.info('선택이 취소되었습니다.');
     }
   }
 
-  private async showSaveConfirmNotification(form: FormInfo, values: Record<string, string>) {
-    const key = generateStorageKey(form);
-    const storageKey = storageKeyToString(key);
-    const siteName = new URL(key.origin).hostname;
-    
-    // 중복 모달 방지
-    this.pendingSaves.set(storageKey, { form, values });
-    
-    await notificationBridge.showSaveConfirm(
-      Object.keys(values).length,
-      siteName,
-      {
-        storageKey: key,
-        values,
-        origin: key.origin,
-        formSignature: key.formSignature
-      },
-      () => {
-        // 저장 선택 (Background Script에서 이미 저장 완료)
-        console.log('[FormManager] 저장 완료 (Background에서 처리됨)');
-        this.pendingSaves.delete(storageKey);
-        // 토스트 알림 표시
-        const fieldCount = Object.keys(values).length;
-        toastManager.success(`폼 데이터 저장됨 (${fieldCount}개 필드)`);
-      },
-      () => {
-        // 이번에는 안함
-        console.log('[FormManager] 사용자가 저장을 취소함');
-        this.pendingSaves.delete(storageKey);
-      },
-      () => {
-        // 다시 묻지 않음 (Background Script에서 이미 설정 완료)
-        console.log('[FormManager] 다시 묻지 않음 설정 완료 (Background에서 처리됨)');
-        this.pendingSaves.delete(storageKey);
-      }
-    );
-  }
+  private async executeAutoFill(memoryId: string): Promise<AutoFillResult> {
+    return new Promise((resolve) => {
+      this.sendMessage(
+        { type: 'GET_MEMORY_BY_ID', id: memoryId },
+        (memory: FieldMemory | null) => {
+          if (!memory) {
+            resolve({
+              totalCount: 0,
+              filledCount: 0,
+              skippedCount: 0,
+              skippedSelectors: [],
+            });
+            return;
+          }
 
-  private showSaveConfirmModal(form: FormInfo, values: Record<string, string>) {
-    const key = generateStorageKey(form);
-    const storageKey = storageKeyToString(key);
-    
-    // 중복 방지
-    this.pendingSaves.set(storageKey, { form, values });
-    
-    this.modalManager.showSaveConfirm(
-      form,
-      // 저장 선택
-      async () => {
-        await this.performSave(form, values);
-        this.pendingSaves.delete(storageKey);
-      },
-      // 이번만 아니오
-      () => {
-        console.log('[FormManager] 이번만 저장 안 함:', storageKey);
-        this.pendingSaves.delete(storageKey);
-      },
-      // 다시 묻지 않기
-      async () => {
-        console.log('[FormManager] 다시 묻지 않기 설정:', storageKey);
-        await saveSiteSettings(key.origin, key.formSignature, { saveMode: 'never' });
-        this.pendingSaves.delete(storageKey);
-      }
-    );
-  }
+          const result = autoFiller.execute(memory.fields);
 
-  private async performSave(form: FormInfo, values: Record<string, string>) {
-    try {
-      const key = generateStorageKey(form);
-      await saveFormData(key, values);
-      
-      console.log('[FormManager] 폼 데이터 저장 완료:', {
-        storageKey: storageKeyToString(key),
-        fieldCount: Object.keys(values).length
-      });
-      
-      // 저장 완료 토스트 표시
-      const fieldCount = Object.keys(values).length;
-      toastManager.success(`폼 데이터 저장됨 (${fieldCount}개 필드)`);
-      
-      // 저장 완료 후 자동으로 저장 모드 OFF
-      await setGlobalSaveMode(false);
-      
-      // Background script에 상태 변경 알림
-      chrome.runtime.sendMessage({
-        type: 'UPDATE_ICON_STATE'
-      }).catch(() => {
-        // 에러 무시 (background script가 없을 수도 있음)
-      });
-      
-      console.log('[FormManager] 저장 모드 자동 OFF 설정됨');
-      
-    } catch (error) {
-      console.error('[FormManager] 저장 실패:', error);
-      toastManager.error('폼 데이터 저장 실패');
-    }
-  }
+          this.sendMessage({ type: 'RECORD_USAGE', id: memoryId });
 
-  // 디버깅용 메소드들
-  public getDetectedForms() {
-    return this.detectedForms;
-  }
+          if (result.filledCount > 0) {
+            toast.success(`${result.filledCount}개 필드 자동 입력 완료`);
+          } else {
+            toast.warning('매칭되는 필드가 없습니다.');
+          }
 
-  public manualCheck() {
-    this.detectedForms.forEach(form => this.checkForSave(form));
-  }
-
-  public async manualSaveTest() {
-    console.log('[FormManager] 수동 저장 테스트 실행...');
-    for (const form of this.detectedForms) {
-      const values = collectFieldValues(form.fields);
-      if (Object.keys(values).length > 0) {
-        this.showSaveConfirmModal(form, values);
-        break; // 첫 번째 폼만 테스트
-      }
-    }
-  }
-
-  public getStorageDebugInfo() {
-    import('../utils/storage').then(async ({ getAllStoredData }) => {
-      const data = await getAllStoredData();
-      console.log('[FormManager] 저장된 모든 데이터:', data);
-    });
-  }
-
-  // 자동입력 관련 메소드들
-  private async checkForAutofill() {
-    console.log('[FormManager] 자동입력 체크 시작...');
-
-    // 모든 폼을 검사해서 자동입력 대상을 큐에 추가
-    for (const form of this.detectedForms) {
-      try {
-        const key = generateStorageKey(form);
-        const storedData = await getFormData(key);
-        
-        if (storedData && Object.keys(storedData.fields).length > 0) {
-          await this.queueAutofillIfNeeded(form, storedData);
-        }
-      } catch (error) {
-        console.error('[FormManager] 자동입력 체크 에러:', error);
-      }
-    }
-
-    // 큐에 있는 항목들을 순차 처리
-    this.processAutofillQueue();
-  }
-
-  private async queueAutofillIfNeeded(form: FormInfo, storedData: any) {
-    const key = generateStorageKey(form);
-    const settings = await getSiteSettings(key.origin, key.formSignature);
-    
-    // 매칭 가능한 필드 확인
-    const matches = matchFieldsForAutofill(form, storedData);
-    const previewData = generatePreviewData(matches);
-    
-    if (Object.keys(previewData).length === 0) {
-      console.log('[FormManager] 자동입력 가능한 필드 없음:', key.formSignature);
-      return;
-    }
-
-    const storageKey = storageKeyToString(key);
-    console.log('[FormManager] 자동입력 가능한 데이터 발견:', {
-      storageKey,
-      matchCount: matches.length,
-      autofillableCount: Object.keys(previewData).length
-    });
-
-    switch (settings.autofillMode) {
-      case 'always':
-        // 바로 자동입력 (큐 거치지 않음)
-        await this.performAutofill(form, storedData);
-        break;
-        
-      case 'never':
-        // 자동입력하지 않음
-        console.log('[FormManager] 자동입력 안 함 (사용자 설정):', storageKey);
-        break;
-        
-      case 'ask':
-      default:
-        // 큐에 추가
-        this.autofillQueue.push({ form, storedData, previewData });
-        break;
-    }
-  }
-
-  private async processAutofillQueue() {
-    if (this.isProcessingAutofill || this.autofillQueue.length === 0) {
-      return;
-    }
-
-    this.isProcessingAutofill = true;
-    
-    while (this.autofillQueue.length > 0) {
-      const { form, storedData, previewData } = this.autofillQueue.shift()!;
-      
-      console.log(`[FormManager] 자동입력 큐 처리 중... (남은 폼: ${this.autofillQueue.length}개)`);
-      
-      // 사용자 응답을 기다림
-      await this.showAutofillConfirmModalAndWait(form, storedData, previewData);
-    }
-
-    this.isProcessingAutofill = false;
-    console.log('[FormManager] 모든 자동입력 큐 처리 완료');
-  }
-
-  private showAutofillConfirmModalAndWait(
-    form: FormInfo, 
-    storedData: any, 
-    previewData: Record<string, string>
-  ): Promise<void> {
-    return new Promise(async (resolve) => {
-      const key = generateStorageKey(form);
-      
-      // 🎉 브라우저 알림으로 변경 (페이지 이동과 독립적)
-      const siteName = new URL(key.origin).hostname;
-      const previewFields = Object.keys(previewData);
-      
-      await notificationBridge.showAutofillConfirm(
-        Object.keys(previewData).length,
-        siteName,
-        previewFields,
-        // 자동입력 선택
-        async () => {
-          await this.performAutofill(form, storedData);
-          resolve();
-        },
-        // 이번만 아니오
-        () => {
-          console.log('[FormManager] 이번만 자동입력 안 함:', storageKeyToString(key));
-          resolve();
-        },
-        // 다시 묻지 않기
-        async () => {
-          console.log('[FormManager] 자동입력 다시 묻지 않기 설정:', storageKeyToString(key));
-          await saveSiteSettings(key.origin, key.formSignature, { autofillMode: 'never' });
-          resolve();
+          resolve(result);
         }
       );
     });
   }
 
+  private checkForSavedMemories(): void {
+    this.sendMessage(
+      { type: 'GET_MEMORIES_FOR_URL', url: window.location.href },
+      (memories: FieldMemory[]) => {
+        if (!memories || memories.length === 0) return;
 
-  private async performAutofill(form: FormInfo, storedData: any) {
-    try {
-      const result = executeAutofill(form, storedData);
-      const key = generateStorageKey(form);
-      
-      console.log('[FormManager] 자동입력 완료:', {
-        storageKey: storageKeyToString(key),
-        ...result
-      });
-      
-      // 자동입력 완료 토스트 표시
-      if (result.filledCount > 0) {
-        toastManager.success(`자동입력 완료 (${result.filledCount}개 필드)`);
-      } else {
-        toastManager.info('자동입력 할 필드가 없었습니다');
-      }
-      
-    } catch (error) {
-      console.error('[FormManager] 자동입력 실패:', error);
-      toastManager.error('자동입력 실패');
-    }
-  }
+        const allFields = memories.flatMap((m) => m.fields);
 
-  // 디버깅용 자동입력 테스트
-  public async manualAutofillTest() {
-    console.log('[FormManager] 수동 자동입력 테스트 실행...');
-    for (const form of this.detectedForms) {
-      const key = generateStorageKey(form);
-      const storedData = await getFormData(key);
-      
-      if (storedData) {
-        const matches = matchFieldsForAutofill(form, storedData);
-        const previewData = generatePreviewData(matches);
-        
-        if (Object.keys(previewData).length > 0) {
-          await this.showAutofillConfirmModalAndWait(form, storedData, previewData);
-          break; // 첫 번째 폼만 테스트
-        }
-      }
-    }
-  }
-
-  /**
-   * 셀렉터 모드 콜백 함수들
-   */
-  private getSelectorModeCallbacks(): SelectorModeCallbacks {
-    return {
-      onSelectionComplete: (selectedFields: FieldData[]) => {
-        this.handleFieldSelectionComplete(selectedFields);
-      },
-      onModeExit: (reason) => {
-        console.log('[FormManager] 셀렉터 모드 종료:', reason);
-        if (reason === 'save') {
-          toastManager.success('💾 필드 데이터가 저장되었습니다', 3000);
+        if (allFields.length > 0) {
+          fieldObserver.start(allFields, () => {});
         }
       },
-    };
+      true
+    );
   }
 
-  /**
-   * 자동 입력 제안 콜백 함수들
-   */
-  private getAutoFillSuggesterCallbacks(): AutoFillSuggesterCallbacks {
-    return {
-      onSuggestionFound: (memories: FieldMemory[]) => {
-        console.log('[FormManager] 자동 입력 제안 발견:', memories.length);
-      },
-      onAutoFillComplete: (result) => {
-        console.log('[FormManager] 자동 입력 완료:', result);
-        toastManager.success(`✅ ${result.filledCount}개 필드 자동 입력 완료`, 3000);
-      },
-      onAutoFillFailed: (error) => {
-        console.error('[FormManager] 자동 입력 실패:', error);
-        toastManager.error('❌ 자동 입력에 실패했습니다', 3000);
-      },
-    };
-  }
-
-  /**
-   * 셀렉터 모드 활성화
-   */
-  private activateSelectorMode(): void {
-    if (this.selectorMode.isActivated()) {
-      toastManager.warning('📝 필드 기억 모드가 이미 활성화되어 있습니다', 2000);
-      return;
-    }
-
-    this.selectorMode.activate();
-    toastManager.info('📝 필드 기억 모드가 활성화되었습니다', 2000);
-  }
-
-  /**
-   * 셀렉터 모드 비활성화
-   */
-  private deactivateSelectorMode(): void {
-    if (!this.selectorMode.isActivated()) {
-      toastManager.warning('📝 필드 기억 모드가 활성화되어 있지 않습니다', 2000);
-      return;
-    }
-
-    this.selectorMode.deactivate('cancel');
-    toastManager.info('📝 필드 기억 모드가 비활성화되었습니다', 2000);
-  }
-
-  /**
-   * 필드 선택 완료 처리
-   */
-  private async handleFieldSelectionComplete(selectedFields: FieldData[]): Promise<void> {
+  private sendMessage<T>(
+    message: Record<string, unknown>,
+    callback?: (response: T) => void,
+    silent = false
+  ): void {
     try {
-      const currentUrl = window.location.href;
-      const urlPattern = generateUrlPattern(currentUrl);
-      
-      // 사용자에게 제목 입력받기
-      const title = prompt(
-        '저장할 데이터의 제목을 입력하세요',
-        `${new URL(currentUrl).hostname} 폼 데이터`
-      );
-
-      if (!title) {
-        toastManager.warning('❌ 제목이 입력되지 않아 저장이 취소되었습니다', 3000);
-        return;
+      chrome.runtime.sendMessage(message, (response: T) => {
+        if (chrome.runtime.lastError) {
+          if (!silent) {
+            toast.error('페이지를 새로고침해주세요.');
+          }
+          return;
+        }
+        callback?.(response);
+      });
+    } catch {
+      if (!silent) {
+        toast.error('페이지를 새로고침해주세요.');
       }
-
-      // 필드 메모리 저장
-      const memoryId = await saveFieldMemory({
-        url: currentUrl,
-        urlPattern,
-        title: title.trim(),
-        fields: selectedFields,
-        useCount: 0,
-      });
-
-      console.log('[FormManager] 필드 메모리 저장 완료:', {
-        id: memoryId,
-        fieldCount: selectedFields.length,
-        title,
-      });
-
-      toastManager.success(`💾 "${title}" 데이터가 저장되었습니다`, 3000);
-
-    } catch (error) {
-      console.error('[FormManager] 필드 메모리 저장 실패:', error);
-      toastManager.error('❌ 데이터 저장에 실패했습니다', 3000);
     }
-  }
-
-  /**
-   * 필드 메모리 기반 자동 입력 체크
-   */
-  private async checkFieldMemoryAutoFill(): Promise<void> {
-    try {
-      await this.autoFillSuggester.checkForSavedData();
-    } catch (error) {
-      console.error('[FormManager] 필드 메모리 자동 입력 체크 실패:', error);
-    }
-  }
-
-  public destroy() {
-    this.modalManager.destroy();
-    
-    // 새로운 시스템 정리
-    if (this.selectorMode?.isActivated()) {
-      this.selectorMode.deactivate('cancel');
-    }
-    this.autoFillSuggester?.hideSuggestionModal();
   }
 }
 
-// FormManager 인스턴스 생성
-const formManager = new FormManager();
-
-// 디버깅을 위해 전역에 노출
-(window as any).formManager = formManager;
-
-console.log('[content] Form-ation 콘텐트 스크립트 로드됨');
+new ContentManager();
