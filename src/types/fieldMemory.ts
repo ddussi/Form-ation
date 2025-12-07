@@ -107,16 +107,3 @@ export const DEFAULT_URL_MATCHING_OPTIONS: UrlMatchingOptions = {
   exactPath: false,
   wildcardDomains: [],
 };
-
-/**
- * 필드 매칭 신뢰도
- */
-export const MatchConfidence = {
-  EXACT: 'exact',               // 완전 일치
-  HIGH: 'high',                 // 높은 신뢰도
-  MEDIUM: 'medium',             // 중간 신뢰도
-  LOW: 'low',                   // 낮은 신뢰도
-  FAILED: 'failed',             // 매칭 실패
-} as const;
-
-export type MatchConfidence = typeof MatchConfidence[keyof typeof MatchConfidence];
