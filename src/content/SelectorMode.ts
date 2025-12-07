@@ -17,10 +17,15 @@ export class SelectorMode {
   private selectableFields = new Set<HTMLElement>();
   private selectedFields = new Map<HTMLElement, FieldData>();
   private controlPanel: HTMLDivElement | null = null;
+  private isDragging = false;
+  private dragOffset = { x: 0, y: 0 };
 
   private boundHandlers = {
-    onClick: this.handleClick.bind(this),
-    onKeyDown: this.handleKeyDown.bind(this),
+    onClick: this.handleClick.bind(this) as EventListener,
+    onKeyDown: this.handleKeyDown.bind(this) as EventListener,
+    onMouseDown: this.handleDragStart.bind(this) as EventListener,
+    onMouseMove: this.handleDragMove.bind(this) as EventListener,
+    onMouseUp: this.handleDragEnd.bind(this) as EventListener,
   };
 
   async activate(): Promise<SelectorModeResult> {
@@ -58,6 +63,7 @@ export class SelectorMode {
 
   private deactivate(result: SelectorModeResult): void {
     this.detachEvents();
+    this.handleDragEnd();
     this.removeHighlights();
     this.removeControlPanel();
     overlay.hide();
@@ -89,6 +95,7 @@ export class SelectorMode {
       z-index: 2147483646;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-width: 280px;
+      user-select: none;
     `;
 
     this.updateControlPanel();
@@ -102,9 +109,21 @@ export class SelectorMode {
     const totalCount = this.selectableFields.size;
 
     this.controlPanel.innerHTML = `
-      <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">
-        필드 선택 모드
-      </h3>
+      <div id="formation-drag-handle" style="
+        margin: -20px -20px 12px -20px;
+        padding: 12px 20px;
+        background: ${HIGHLIGHT_COLOR};
+        border-radius: 10px 10px 0 0;
+        cursor: move;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      ">
+        <h3 style="margin: 0; font-size: 14px; color: white;">
+          필드 선택 모드
+        </h3>
+        <span style="color: rgba(255,255,255,0.7); font-size: 11px;">드래그하여 이동</span>
+      </div>
       <p style="margin: 0 0 16px 0; font-size: 13px; color: #666;">
         저장할 필드를 클릭하세요
       </p>
@@ -154,12 +173,13 @@ export class SelectorMode {
       </p>
     `;
 
-    // 버튼 이벤트
     const saveBtn = this.controlPanel.querySelector('#formation-save-btn');
     const cancelBtn = this.controlPanel.querySelector('#formation-cancel-btn');
+    const dragHandle = this.controlPanel.querySelector('#formation-drag-handle');
 
     saveBtn?.addEventListener('click', () => this.handleSave());
     cancelBtn?.addEventListener('click', () => this.handleCancel());
+    dragHandle?.addEventListener('mousedown', this.boundHandlers.onMouseDown);
   }
 
   private highlightFields(): void {
@@ -219,6 +239,42 @@ export class SelectorMode {
       e.preventDefault();
       this.handleCancel();
     }
+  }
+
+  private handleDragStart(e: MouseEvent): void {
+    if (!this.controlPanel) return;
+
+    this.isDragging = true;
+    const rect = this.controlPanel.getBoundingClientRect();
+    this.dragOffset = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+
+    document.addEventListener('mousemove', this.boundHandlers.onMouseMove);
+    document.addEventListener('mouseup', this.boundHandlers.onMouseUp);
+
+    e.preventDefault();
+  }
+
+  private handleDragMove(e: MouseEvent): void {
+    if (!this.isDragging || !this.controlPanel) return;
+
+    const x = e.clientX - this.dragOffset.x;
+    const y = e.clientY - this.dragOffset.y;
+
+    const maxX = window.innerWidth - this.controlPanel.offsetWidth;
+    const maxY = window.innerHeight - this.controlPanel.offsetHeight;
+
+    this.controlPanel.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
+    this.controlPanel.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
+    this.controlPanel.style.right = 'auto';
+  }
+
+  private handleDragEnd(): void {
+    this.isDragging = false;
+    document.removeEventListener('mousemove', this.boundHandlers.onMouseMove);
+    document.removeEventListener('mouseup', this.boundHandlers.onMouseUp);
   }
 
   private selectField(element: HTMLElement): void {
