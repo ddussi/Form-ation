@@ -250,28 +250,6 @@ export async function recordFieldMemoryUsage(id: string): Promise<void> {
 }
 
 /**
- * 사이트별 필드 메모리 삭제
- */
-export async function deleteFieldMemoriesBySite(domain: string): Promise<number> {
-  const allMemories = await getAllFieldMemories();
-  let deletedCount = 0;
-  
-  for (const memory of allMemories) {
-    try {
-      const memoryUrl = new URL(memory.url);
-      if (memoryUrl.hostname === domain) {
-        await deleteFieldMemory(memory.id);
-        deletedCount++;
-      }
-    } catch (error) {
-      console.warn('[FieldStorage] URL 파싱 실패:', memory.url, error);
-    }
-  }
-  
-  return deletedCount;
-}
-
-/**
  * 필드 메모리 통계 조회
  */
 export async function getFieldMemoryStats(): Promise<FieldMemoryStats> {
@@ -310,11 +288,9 @@ export async function getFieldMemoryStats(): Promise<FieldMemoryStats> {
   return {
     totalCount: allMemories.length,
     totalSize: storageSize,
-    totalMemories: allMemories.length,
     totalFields,
     mostUsedSites,
     recentlyUsed,
-    storageSize,
   };
 }
 
@@ -368,21 +344,9 @@ async function removeFromIndex(urlPattern: string, memoryId: string): Promise<vo
 /**
  * 설정 조회
  */
-export async function getSettings(): Promise<FieldMemorySettings> {
+async function getSettings(): Promise<FieldMemorySettings> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.SETTINGS);
   return { ...DEFAULT_SETTINGS, ...result[STORAGE_KEYS.SETTINGS] };
-}
-
-/**
- * 설정 업데이트
- */
-export async function updateSettings(settings: Partial<FieldMemorySettings>): Promise<void> {
-  const current = await getSettings();
-  const updated = { ...current, ...settings };
-  
-  await chrome.storage.local.set({
-    [STORAGE_KEYS.SETTINGS]: updated
-  });
 }
 
 /**

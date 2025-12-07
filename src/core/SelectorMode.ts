@@ -32,7 +32,6 @@ export class SelectorMode {
     handleFieldClick: this.handleFieldClick.bind(this),
     handleFieldHover: this.handleFieldHover.bind(this),
     handleKeyPress: this.handleKeyPress.bind(this),
-    handleOutsideClick: this.handleOutsideClick.bind(this),
   };
 
   constructor(options?: Partial<SelectorModeOptions>, callbacks?: SelectorModeCallbacks) {
@@ -411,7 +410,6 @@ export class SelectorMode {
     document.addEventListener('click', this.boundHandlers.handleFieldClick, true);
     document.addEventListener('mouseover', this.boundHandlers.handleFieldHover, true);
     document.addEventListener('keydown', this.boundHandlers.handleKeyPress, true);
-    document.addEventListener('click', this.boundHandlers.handleOutsideClick, false);
   }
 
   /**
@@ -421,7 +419,6 @@ export class SelectorMode {
     document.removeEventListener('click', this.boundHandlers.handleFieldClick, true);
     document.removeEventListener('mouseover', this.boundHandlers.handleFieldHover, true);
     document.removeEventListener('keydown', this.boundHandlers.handleKeyPress, true);
-    document.removeEventListener('click', this.boundHandlers.handleOutsideClick, false);
   }
 
   /**
@@ -477,20 +474,6 @@ export class SelectorMode {
     if (event.key === 'Escape') {
       event.preventDefault();
       this.deactivate('escape');
-    }
-  }
-
-  /**
-   * 외부 클릭 처리 (필드가 아닌 곳 클릭 시)
-   */
-  private handleOutsideClick(event: MouseEvent): void {
-    if (!this.isActive) return;
-
-    const target = event.target as HTMLElement;
-
-    // 컨트롤 패널이나 선택 가능한 필드가 아닌 곳을 클릭한 경우
-    if (!this.controlPanel?.contains(target) && !this.selectableFields.has(target)) {
-      // 아무것도 하지 않음 (사용자가 의도적으로 취소하지 않는 한 유지)
     }
   }
 

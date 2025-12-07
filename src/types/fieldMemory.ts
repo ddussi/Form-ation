@@ -72,27 +72,17 @@ export interface AutoFillResult {
 }
 
 /**
- * 필드 기억 저장소 키 구조
- */
-export interface FieldMemoryStorageKey {
-  type: 'field_memory';
-  version: number;
-}
-
-/**
  * 필드 기억 통계
  */
 export interface FieldMemoryStats {
   totalCount: number;            // 전체 메모리 수
   totalSize: number;             // 전체 크기 (바이트)
-  totalMemories: number;
   totalFields: number;
   mostUsedSites: Array<{
     domain: string;
     count: number;
   }>;
   recentlyUsed: FieldMemory[];
-  storageSize: number;           // 바이트 단위
 }
 
 /**
@@ -119,55 +109,12 @@ export const DEFAULT_URL_MATCHING_OPTIONS: UrlMatchingOptions = {
 };
 
 /**
- * 지원하는 필드 타입들
- */
-export const SUPPORTED_FIELD_TYPES = [
-  'text',
-  'email', 
-  'tel',
-  'url',
-  'search',
-  'number',
-  'date',
-  'datetime-local',
-  'time',
-  'month',
-  'week',
-  'textarea',
-  'select-one',
-  'select-multiple',
-] as const;
-
-export type SupportedFieldType = typeof SUPPORTED_FIELD_TYPES[number];
-
-/**
- * 필드 타입별 검증 함수
- */
-export interface FieldValidation {
-  isValid: boolean;
-  message?: string;
-}
-
-/**
- * 셀렉터 생성 전략
- */
-export const SelectorStrategy = {
-  NAME_ATTRIBUTE: 'name',       // name 속성 우선
-  ID_ATTRIBUTE: 'id',           // id 속성 우선  
-  CLASS_BASED: 'class',         // 클래스 기반
-  POSITION_BASED: 'position',   // 위치 기반 (nth-child)
-  HYBRID: 'hybrid',             // 복합 전략
-} as const;
-
-export type SelectorStrategy = typeof SelectorStrategy[keyof typeof SelectorStrategy];
-
-/**
  * 필드 매칭 신뢰도
  */
 export const MatchConfidence = {
   EXACT: 'exact',               // 완전 일치
   HIGH: 'high',                 // 높은 신뢰도
-  MEDIUM: 'medium',             // 중간 신뢰도  
+  MEDIUM: 'medium',             // 중간 신뢰도
   LOW: 'low',                   // 낮은 신뢰도
   FAILED: 'failed',             // 매칭 실패
 } as const;
