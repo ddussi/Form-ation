@@ -1,138 +1,140 @@
 # Form-ation
 
-Chrome 확장 프로그램으로 구현한 웹 폼 자동저장 및 자동입력 시스템입니다.
+웹 폼 입력값을 저장하고 재방문 시 자동 완성해주는 Chrome 확장 프로그램입니다.
 
-## 핵심 기능
+## 주요 기능
 
-### 사용자 주도적 저장 시스템
-- 기본 OFF 상태로 불필요한 알림 방지
-- 확장 아이콘 클릭으로 저장 모드 ON/OFF 전환
-- 저장 완료 후 자동으로 OFF 상태 복귀
+### 셀렉터 모드
 
-### 폼 처리 기능
-- `<form>` 태그 및 페이지 레벨 입력 필드 자동 감지
-- 한 페이지 내 다중 폼 순차 처리
-- name/id 기반 정확한 필드 매칭으로 자동입력
+- 저장할 입력 필드를 직접 클릭하여 선택
+- 선택한 필드의 값을 별칭과 함께 저장
+- CSR(Client-Side Rendering) 앱에서도 정상 동작
 
-### 브라우저 알림 시스템  
-- Chrome Notifications API를 활용한 페이지 독립적 알림
-- 네이버 검색 등 즉시 페이지 이동 환경에서도 정상 동작
-- `requireInteraction` 옵션으로 데이터 손실 방지
+### 자동 입력
 
-### 보안 및 프라이버시
-- 모든 데이터는 `chrome.storage.local`에만 저장
-- password 타입 필드 자동 제외
-- Shadow DOM으로 웹사이트 스타일 간섭 차단
+- 같은 URL 재방문 시 저장된 데이터 목록 표시
+- 원하는 데이터 세트를 선택하여 자동 입력
+- 정확한 매칭으로 안전한 자동 입력
 
-## 해결한 주요 문제
+### 데이터 관리
 
-| 문제 | 해결 방법 |
-|------|----------|
-| 폼 제출 시 페이지 이동으로 저장 기회 상실 | 브라우저 알림으로 페이지 독립적 저장 |
-| 모든 폼에서 불필요한 저장 확인 요청 | 사용자 주도적 ON/OFF 모드 |
-| 다중 폼 페이지에서 일부만 처리됨 | 큐 기반 순차 처리 시스템 |
-| 기존 입력값 덮어쓰기 우려 | 기존 값 보호 로직 |
+- URL별 여러 데이터 세트 저장 가능 (SET 1, SET 2, ...)
+- Options 페이지에서 저장된 데이터 조회/수정/삭제
+- 모든 데이터는 로컬에만 저장 (서버 전송 없음)
 
 ## 기술 스택
 
-### 프레임워크 및 빌드
-- React 19 + TypeScript + Vite + SWC
-- Chrome Extension Manifest v3
-- @crxjs/vite-plugin (v2.2.0)
+- **Frontend**: React 19 + TypeScript
+- **Build**: Vite + @crxjs/vite-plugin
+- **Extension**: Chrome Manifest V3
+- **Storage**: chrome.storage.local
 
-### 개발 도구
-- ESLint (strict) + Prettier
-- pnpm (v10.15.0)
-- WSL + nvm
+## 설치
 
-### Chrome APIs
-- `chrome.notifications` - 브라우저 레벨 알림
-- `chrome.storage.local` - 로컬 데이터 저장
-- `chrome.action` - 확장 아이콘 제어
-- Message Passing - Content ↔ Background Script 통신
+### 개발자 모드 설치
 
-## 설치 및 사용법
-
-### 설치 방법
-
-**Option 1: Chrome 웹스토어 (권장)**
-```
-Chrome 웹스토어에서 "Form-ation" 검색 후 설치
-```
-
-**Option 2: 개발자 모드 설치**
 ```bash
-# 1. 소스 코드 다운로드 및 빌드
+# 1. 저장소 클론
 git clone <repository>
 cd Form-ation
+
+# 2. 의존성 설치
 pnpm install
+
+# 3. 빌드
 pnpm build
 
-# 2. Chrome에 수동 로드
-# chrome://extensions/ → 개발자 모드 ON → 압축해제된 확장 프로그램 로드 → dist 폴더 선택
+# 4. Chrome에 로드
+# chrome://extensions → 개발자 모드 ON → 압축해제된 확장 프로그램 로드 → dist 폴더 선택
 ```
 
-### 사용법
+### 개발 모드
 
-1. 확장 프로그램 설치 후 브라우저 상단의 Form-ation 아이콘 확인
-2. 폼 작성 시 저장하고 싶다면 아이콘 클릭으로 저장 모드 활성화 (빨간 "ON" 배지 표시)
-3. 폼 제출 시 브라우저 알림으로 저장 확인
-4. 재방문 시 자동으로 자동입력 제안 모달 표시
+```bash
+pnpm dev
+```
 
-### 관리 대시보드
-- 우클릭 → 확장 프로그램 옵션 또는 `chrome://extensions/`에서 Options 클릭
-- 저장된 데이터 조회/삭제, 사이트별 설정 관리
+## 사용법
+
+### 폼 데이터 저장
+
+1. 저장하고 싶은 폼이 있는 페이지에서 Form-ation 아이콘 클릭
+2. **새로 저장** 버튼 클릭하여 셀렉터 모드 활성화
+3. 저장할 입력 필드들을 클릭하여 선택 (선택된 필드는 초록색 테두리)
+4. **저장** 버튼 클릭 후 별칭 입력
+
+### 자동 입력
+
+1. 저장된 데이터가 있는 페이지 재방문
+2. Form-ation 아이콘 클릭
+3. 원하는 데이터 세트의 **입력** 버튼 클릭
+
+### 데이터 관리
+
+1. Form-ation 아이콘 우클릭 → 옵션
+2. 저장된 모든 데이터 조회
+3. 별칭 수정 또는 삭제
 
 ## 프로젝트 구조
 
 ```
 src/
-├── manifest.ts              # Chrome Extension 설정
-├── background/              # Service Worker (알림, 저장 처리)
+├── types/index.ts              # 도메인 모델 정의
+├── storage/
+│   └── FieldMemoryRepository.ts # 데이터 CRUD
+├── core/
+│   ├── FieldExtractor.ts       # 필드 정보 추출
+│   ├── FieldMatcher.ts         # 필드 매칭
+│   ├── AutoFiller.ts           # 자동 입력 실행
 │   └── index.ts
-├── content/                 # Content Script (폼 감지, UI)
-│   ├── index.ts
-│   └── ModalManager.tsx
-├── options/                 # 관리 대시보드 페이지
-│   ├── index.html
-│   ├── main.tsx
-│   └── options.css
-├── components/              # 공통 UI 컴포넌트
-│   ├── AutofillConfirmModal.tsx
-│   ├── SaveConfirmModal.tsx
-│   └── Toast.tsx
-├── utils/                   # 핵심 비즈니스 로직
-│   ├── formDetection.ts     # 폼/필드 감지
-│   ├── fieldFiltering.ts    # 민감값 필터링
-│   ├── storage.ts           # 데이터 저장/조회
-│   ├── autofill.ts          # 자동입력 처리
-│   ├── browserNotification.ts # 브라우저 알림
-│   └── notificationBridge.ts   # Content-Background 통신
-└── types/                   # TypeScript 타입 정의
-    └── form.ts
+├── ui/
+│   ├── Toast.ts                # 토스트 알림
+│   ├── Overlay.ts              # 오버레이
+│   ├── AliasModal.ts           # 별칭 입력 모달
+│   └── index.ts
+├── content/
+│   ├── index.ts                # Content Script 진입점
+│   ├── SelectorMode.ts         # 필드 선택 UI
+│   └── FieldObserver.ts        # 동적 DOM 감지
+├── background/index.ts         # Service Worker
+├── popup/                      # 팝업 UI (React)
+├── options/                    # 옵션 페이지 (React)
+└── manifest.ts                 # 확장 프로그램 설정
 ```
 
-## 테스트 환경
+## 아키텍처
 
-### 검증된 실제 사용 환경
-- 네이버 검색 - 즉시 페이지 이동하는 환경에서도 정상 저장
-- 구글 폼 - 복잡한 다단계 폼에서 정상 동작
-- 일반 웹사이트 - HTML 폼 표준 지원
-- 다중 폼 페이지 - 여러 폼 순차 처리
+### 메시지 흐름
 
-## 기술 성과
+```
+Popup ←→ Background (Service Worker) ←→ Content Script
+              ↓
+        Chrome Storage
+```
 
-### 핵심 지표
-- 번들 크기: 23.32kB
-- TypeScript 100% 적용
-- Chrome Extension MV3 표준 준수
+### 핵심 설계
 
-### 아키텍처
-- Message Passing 패턴으로 Content ↔ Background Script 통신
-- Shadow DOM을 통한 웹사이트 스타일 간섭 차단
-- Content Script (UI) / Background Script (Logic) 역할 분리
-- 모듈형 설계로 확장 가능
+| 원칙        | 적용                                     |
+| ----------- | ---------------------------------------- |
+| 단일 책임   | 각 모듈이 하나의 역할만 담당             |
+| 정확 매칭   | 셀렉터 + 타입 완전 일치 시에만 자동 입력 |
+| URL 정규화  | pathname만 비교 (쿼리/해시 무시)         |
+| 안정성 표시 | 불안정한 셀렉터 선택 시 경고             |
 
----
+### 셀렉터 우선순위
 
-**완성된 Chrome Extension MVP** (v1.0.0)
+1. `name` 속성 (가장 안정적)
+2. `data-testid`, `data-test-id`, `data-cy`
+3. `id` 속성
+4. 클래스 + 타입 조합
+5. 위치 기반 (`:nth-of-type`)
+
+## 보안
+
+- password 타입 필드 자동 제외
+- 모든 데이터 로컬 저장 (chrome.storage.local)
+- 서버 전송 없음
+
+## 라이선스
+
+MIT
