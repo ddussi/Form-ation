@@ -1,183 +1,150 @@
-import { toastManager } from '../ui/toastManager';
-import { SelectorMode, type SelectorModeCallbacks } from '../core/SelectorMode';
-import { AutoFillSuggester, type AutoFillSuggesterCallbacks } from '../core/AutoFillSuggester';
-import { saveFieldMemory, generateUrlPattern } from '../services/fieldStorage';
-import type { FieldMemory, FieldData } from '../types/fieldMemory';
+import type { FieldMemory, AutoFillResult } from '../types';
+import { autoFiller, fieldMatcher } from '../core';
+import { toast } from '../ui';
+import { selectorMode } from './SelectorMode';
+import { fieldObserver } from './FieldObserver';
 
-class FormManager {
-  private isInitialized = false;
-
-  // 셀렉터 모드 시스템
-  private selectorMode: SelectorMode;
-  private autoFillSuggester: AutoFillSuggester;
+class ContentManager {
+  private initialized = false;
 
   constructor() {
-    // 셀렉터 모드 초기화
-    this.selectorMode = new SelectorMode({}, this.getSelectorModeCallbacks());
-
-    // 자동 입력 제안 시스템 초기화
-    this.autoFillSuggester = new AutoFillSuggester(this.getAutoFillSuggesterCallbacks());
-
     this.init();
   }
 
-  private init() {
-    // DOM이 완전히 로드된 후 실행
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.initialize());
-    } else {
-      this.initialize();
+  private init(): void {
+    if (this.initialized) return;
+    this.initialized = true;
+
+    this.setupMessageListener();
+    this.checkForSavedMemories();
+  }
+
+  private setupMessageListener(): void {
+    chrome.runtime.onMessage.addListener(
+      (
+        message: unknown,
+        _sender: unknown,
+        sendResponse: (response?: unknown) => void
+      ): boolean => {
+        this.handleMessage(message as { type: string; [key: string]: unknown }, sendResponse);
+        return true; // 비동기 응답을 위해 true 반환
+      }
+    );
+  }
+
+  private async handleMessage(
+    message: { type: string; [key: string]: unknown },
+    sendResponse: (response: unknown) => void
+  ): Promise<void> {
+    switch (message.type) {
+      case 'ACTIVATE_SELECTOR_MODE':
+        await this.activateSelectorMode();
+        sendResponse({ success: true });
+        break;
+
+      case 'EXECUTE_AUTOFILL':
+        const result = await this.executeAutoFill(message.memoryId as string);
+        sendResponse(result);
+        break;
+
+      case 'CHECK_FIELD_MATCH':
+        const fields = message.fields as { selector: string; type: string }[];
+        const matchCount = fieldMatcher.countMatches(fields as any);
+        sendResponse({ matchCount });
+        break;
+
+      default:
+        sendResponse({ error: 'Unknown message type' });
     }
   }
 
-  private initialize() {
-    if (this.isInitialized) return;
-    this.isInitialized = true;
+  private async activateSelectorMode(): Promise<void> {
+    if (selectorMode.isActivated()) {
+      toast.warning('이미 선택 모드가 활성화되어 있습니다.');
+      return;
+    }
 
-    console.log('[FormManager] 초기화 시작...');
-    this.setupMessageListener();
+    const result = await selectorMode.activate();
 
-    // 자동 입력 제안 체크 (폼 감지 후 약간의 딜레이)
-    setTimeout(() => {
-      this.checkFieldMemoryAutoFill();
-    }, 500);
+    if (result.saved && result.fields.length > 0) {
+      // Background로 저장 요청
+      chrome.runtime.sendMessage(
+        {
+          type: 'SAVE_MEMORY',
+          data: {
+            url: window.location.href,
+            alias: result.alias,
+            fields: result.fields,
+          },
+        },
+        (response: { id?: string } | undefined) => {
+          if (response?.id) {
+            toast.success(`"${result.alias}" 저장 완료 (${result.fields.length}개 필드)`);
+          } else {
+            toast.error('저장에 실패했습니다.');
+          }
+        }
+      );
+    } else if (!result.saved) {
+      toast.info('선택이 취소되었습니다.');
+    }
   }
 
-  private setupMessageListener() {
-    // Background script에서 보내는 메시지 처리
-    chrome.runtime.onMessage.addListener((message: any) => {
-      if (message?.type === 'ACTIVATE_SELECTOR_MODE') {
-        // 셀렉터 모드 활성화 요청
-        console.log('[FormManager] 셀렉터 모드 활성화 요청');
-        this.activateSelectorMode();
-      } else if (message?.type === 'DEACTIVATE_SELECTOR_MODE') {
-        // 셀렉터 모드 비활성화 요청
-        console.log('[FormManager] 셀렉터 모드 비활성화 요청');
-        this.deactivateSelectorMode();
-      }
+  private async executeAutoFill(memoryId: string): Promise<AutoFillResult> {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: 'GET_MEMORY_BY_ID', id: memoryId },
+        (memory: FieldMemory | null) => {
+          if (!memory) {
+            resolve({
+              totalCount: 0,
+              filledCount: 0,
+              skippedCount: 0,
+              skippedSelectors: [],
+            });
+            return;
+          }
+
+          const result = autoFiller.execute(memory.fields);
+
+          // 사용 기록 업데이트
+          chrome.runtime.sendMessage({
+            type: 'RECORD_USAGE',
+            id: memoryId,
+          });
+
+          if (result.filledCount > 0) {
+            toast.success(`${result.filledCount}개 필드 자동 입력 완료`);
+          } else {
+            toast.warning('매칭되는 필드가 없습니다.');
+          }
+
+          resolve(result);
+        }
+      );
     });
   }
 
-  /**
-   * 셀렉터 모드 콜백 함수들
-   */
-  private getSelectorModeCallbacks(): SelectorModeCallbacks {
-    return {
-      onSelectionComplete: (selectedFields: FieldData[]) => {
-        this.handleFieldSelectionComplete(selectedFields);
-      },
-      onModeExit: (reason) => {
-        console.log('[FormManager] 셀렉터 모드 종료:', reason);
-        if (reason === 'save') {
-          toastManager.success('💾 필드 데이터가 저장되었습니다', 3000);
+  private checkForSavedMemories(): void {
+    chrome.runtime.sendMessage(
+      { type: 'GET_MEMORIES_FOR_URL', url: window.location.href },
+      (memories: FieldMemory[]) => {
+        if (!memories || memories.length === 0) return;
+
+        // 모든 저장된 필드를 합쳐서 감시
+        const allFields = memories.flatMap((m) => m.fields);
+
+        if (allFields.length > 0) {
+          fieldObserver.start(allFields, () => {
+            // 필드가 감지되면 팝업에서 처리하도록 함
+            // Content Script에서는 알림만 표시하지 않음
+            // 사용자가 팝업을 열어서 선택하도록 유도
+          });
         }
-      },
-    };
-  }
-
-  /**
-   * 자동 입력 제안 콜백 함수들
-   */
-  private getAutoFillSuggesterCallbacks(): AutoFillSuggesterCallbacks {
-    return {
-      onSuggestionFound: (memories: FieldMemory[]) => {
-        console.log('[FormManager] 자동 입력 제안 발견:', memories.length);
-      },
-      onAutoFillComplete: (result) => {
-        console.log('[FormManager] 자동 입력 완료:', result);
-        toastManager.success(`✅ ${result.filledCount}개 필드 자동 입력 완료`, 3000);
-      },
-      onAutoFillFailed: (error) => {
-        console.error('[FormManager] 자동 입력 실패:', error);
-        toastManager.error('❌ 자동 입력에 실패했습니다', 3000);
-      },
-    };
-  }
-
-  /**
-   * 셀렉터 모드 활성화
-   */
-  private activateSelectorMode(): void {
-    if (this.selectorMode.isActivated()) {
-      toastManager.warning('📝 필드 기억 모드가 이미 활성화되어 있습니다', 2000);
-      return;
-    }
-
-    this.selectorMode.activate();
-    toastManager.info('📝 필드 기억 모드가 활성화되었습니다', 2000);
-  }
-
-  /**
-   * 셀렉터 모드 비활성화
-   */
-  private deactivateSelectorMode(): void {
-    if (!this.selectorMode.isActivated()) {
-      toastManager.warning('📝 필드 기억 모드가 활성화되어 있지 않습니다', 2000);
-      return;
-    }
-
-    this.selectorMode.deactivate('cancel');
-    toastManager.info('📝 필드 기억 모드가 비활성화되었습니다', 2000);
-  }
-
-  /**
-   * 필드 선택 완료 처리
-   */
-  private async handleFieldSelectionComplete(selectedFields: FieldData[]): Promise<void> {
-    try {
-      const currentUrl = window.location.href;
-      const urlPattern = generateUrlPattern(currentUrl);
-
-      // 제목을 URL로 자동 생성
-      const title = currentUrl;
-
-      // 필드 메모리 저장
-      const memoryId = await saveFieldMemory({
-        url: currentUrl,
-        urlPattern,
-        title,
-        fields: selectedFields,
-        useCount: 0,
-      });
-
-      console.log('[FormManager] 필드 메모리 저장 완료:', {
-        id: memoryId,
-        fieldCount: selectedFields.length,
-        title,
-      });
-
-      toastManager.success(`💾 "${title}" 데이터가 저장되었습니다`, 3000);
-
-    } catch (error) {
-      console.error('[FormManager] 필드 메모리 저장 실패:', error);
-      toastManager.error('❌ 데이터 저장에 실패했습니다', 3000);
-    }
-  }
-
-  /**
-   * 필드 메모리 기반 자동 입력 체크
-   */
-  private async checkFieldMemoryAutoFill(): Promise<void> {
-    try {
-      await this.autoFillSuggester.checkForSavedData();
-    } catch (error) {
-      console.error('[FormManager] 필드 메모리 자동 입력 체크 실패:', error);
-    }
-  }
-
-  public destroy() {
-    // 새로운 시스템 정리
-    if (this.selectorMode?.isActivated()) {
-      this.selectorMode.deactivate('cancel');
-    }
-    this.autoFillSuggester?.hideSuggestionModal();
+      }
+    );
   }
 }
 
-// FormManager 인스턴스 생성
-const formManager = new FormManager();
-
-// 디버깅을 위해 전역에 노출
-(window as any).formManager = formManager;
-
-console.log('[content] Form-ation 콘텐트 스크립트 로드됨');
+// Content Manager 인스턴스 생성
+new ContentManager();
