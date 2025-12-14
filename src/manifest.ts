@@ -3,8 +3,9 @@ import { defineManifest } from '@crxjs/vite-plugin';
 export default defineManifest({
   manifest_version: 3,
   name: 'Form-ation',
-  version: '1.0.0',
-  description: '웹 폼 입력값을 저장하고 재방문 시 자동 완성해주는 도구입니다. 모든 데이터는 로컬에만 저장됩니다.',
+  version: '2.0.0',
+  description:
+    '웹 폼 입력값을 저장하고 재방문 시 자동 완성해주는 도구입니다. 모든 데이터는 로컬에만 저장됩니다.',
   icons: {
     16: 'icons/icon16.png',
     48: 'icons/icon48.png',
